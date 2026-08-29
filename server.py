@@ -29,8 +29,27 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 DB_PATH = os.path.join(DATA_DIR, 'attendance.db')
 BACKUP_DIR = os.path.join(DATA_DIR, 'backups')
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
-PORT = 5000
-MAX_BACKUPS = 30
+
+
+def load_env(path):
+    """Carga variables de un archivo .env al entorno (sin dependencias externas)."""
+    if not os.path.isfile(path):
+        return
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+            key, _, value = line.partition('=')
+            os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+load_env(os.path.join(BASE_DIR, '.env'))
+
+PORT = int(os.environ.get('PORT', 5000))
+MAX_BACKUPS = int(os.environ.get('MAX_BACKUPS', 30))
+DEVICE_ALERT_WINDOW_MIN = int(os.environ.get('DEVICE_ALERT_WINDOW_MIN', 5))
+DEFAULT_ADMIN_PASSWORD = os.environ.get('DEFAULT_ADMIN_PASSWORD', '1234')
 
 os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -121,18 +140,13 @@ def init_db():
         conn.execute("ALTER TABLE employees ADD COLUMN lunch_minutes INTEGER")
         conn.commit()
     if conn.execute("SELECT 1 FROM config WHERE key='password'").fetchone() is None:
-        conn.execute("INSERT INTO config (key, value) VALUES ('password','1234')")
+        conn.execute("INSERT INTO config (key, value) VALUES ('password',?)", (DEFAULT_ADMIN_PASSWORD,))
     if conn.execute("SELECT 1 FROM config WHERE key='lunch_minutes'").fetchone() is None:
         conn.execute("INSERT INTO config (key, value) VALUES ('lunch_minutes','90')")
     if conn.execute("SELECT 1 FROM config WHERE key='recovery_code'").fetchone() is None:
         conn.execute("INSERT INTO config (key, value) VALUES ('recovery_code', ?)", (gen_recovery_code(),))
     conn.commit()
     conn.close()
-
-
-DEVICE_ALERT_WINDOW_MIN = 5  # minutos: si dos empleados distintos marcan entrada
-                              # desde el mismo dispositivo dentro de esta ventana,
-                              # se genera una alerta silenciosa para el administrador.
 
 
 
@@ -521,7 +535,7 @@ class Handler(BaseHTTPRequestHandler):
     def require_admin(self):
         pw = self.headers.get('X-Admin-Pass', '')
         cfg = get_config()
-        return pw == cfg.get('password', '1234')
+        return pw == cfg.get('password', DEFAULT_ADMIN_PASSWORD)
 
     def do_GET(self):
         parts = urlsplit(self.path)
@@ -703,7 +717,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/api/admin/login':
             pw = str(body.get('password', ''))
             cfg = get_config()
-            return self.send_json({'ok': pw == cfg.get('password', '1234')})
+            return self.send_json({'ok': pw == cfg.get('password', DEFAULT_ADMIN_PASSWORD)})
 
         if path == '/api/admin/recover':
             code = str(body.get('recoveryCode', '')).strip().upper()
