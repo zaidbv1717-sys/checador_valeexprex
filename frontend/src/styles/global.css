@@ -17,7 +17,7 @@
 }
 *{box-sizing:border-box;}
 body{margin:0;}
-#app-root{
+#root{
   font-family:var(--sans);
   background:var(--bg);
   color:var(--ink);
