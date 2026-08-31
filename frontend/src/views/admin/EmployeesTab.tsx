@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
+import EmployeePhoto from "../../components/EmployeePhoto";
 import { useToast } from "../../components/Toast";
 import type { Category, Employee } from "../../types";
 import { CATEGORY_LABEL } from "../../utils/format";
@@ -14,6 +15,8 @@ export default function EmployeesTab() {
   const [schedIn, setSchedIn] = useState("");
   const [schedOut, setSchedOut] = useState("");
   const [lunchMin, setLunchMin] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   async function load() {
     const r = await api<{ employees: Employee[] }>("/api/admin/employees");
@@ -36,13 +39,27 @@ export default function EmployeesTab() {
   }, [category, categories]);
 
   async function addEmployee() {
+    if (!photo) {
+      toast("Se requiere una foto del empleado");
+      return;
+    }
+    const form = new FormData();
+    form.append("name", name.trim());
+    form.append("pin", pin.trim());
+    form.append("category", category);
+    form.append("schedIn", schedIn);
+    form.append("schedOut", schedOut);
+    form.append("lunchMinutes", lunchMin);
+    form.append("photo", photo);
     const r = await api<{ ok: boolean; error?: string }>("/api/admin/employees", {
       method: "POST",
-      body: JSON.stringify({ name: name.trim(), pin: pin.trim(), category, schedIn, schedOut, lunchMinutes: lunchMin }),
+      body: form,
     });
     if (r.ok) {
       setName("");
       setPin("");
+      setPhoto(null);
+      if (photoInputRef.current) photoInputRef.current.value = "";
       load();
     } else {
       toast(r.error || "Error");
@@ -93,9 +110,20 @@ export default function EmployeesTab() {
           <input type="number" min={0} value={lunchMin} onChange={(e) => setLunchMin(e.target.value)} />
         </div>
       </div>
+      <div className="row">
+        <div style={{ flex: 1 }}>
+          <label style={{ fontSize: 11, color: "var(--muted)" }}>Foto del empleado (obligatoria)</label>
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(e) => setPhoto(e.target.files?.[0] || null)}
+          />
+        </div>
+      </div>
       <div className="note" style={{ marginTop: -4 }}>
         Los horarios y minutos de comida se llenan solos según la categoría — puedes ajustarlos si este empleado es
-        distinto.
+        distinto. La foto se guarda para identificarlo en un futuro checador biométrico.
       </div>
       <div className="row" style={{ marginTop: 10 }}>
         <button className="btn" style={{ flex: 1 }} onClick={addEmployee}>
@@ -106,14 +134,17 @@ export default function EmployeesTab() {
         {employees.length ? (
           employees.map((e) => (
             <div className="emp-item" key={e.id}>
-              <span>
-                {e.name}
-                <span className={`cat-badge ${e.category || "trabajador"}`}>
-                  {CATEGORY_LABEL[e.category] || "Trabajador"}
-                </span>
-                <br />
-                <span className="pin">
-                  {e.sched_in}–{e.sched_out} · comida {e.lunch_minutes || 90} min
+              <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <EmployeePhoto url={e.photoUrl} alt={e.name} />
+                <span>
+                  {e.name}
+                  <span className={`cat-badge ${e.category || "trabajador"}`}>
+                    {CATEGORY_LABEL[e.category] || "Trabajador"}
+                  </span>
+                  <br />
+                  <span className="pin">
+                    {e.sched_in}–{e.sched_out} · comida {e.lunch_minutes || 90} min
+                  </span>
                 </span>
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 12 }}>

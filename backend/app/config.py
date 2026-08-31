@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     device_alert_window_min: int = 5
     default_admin_password: str = "1234"
     backup_dir: str = str(REPO_ROOT / "data" / "backups")
+    photos_dir: str = str(REPO_ROOT / "data" / "photos")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

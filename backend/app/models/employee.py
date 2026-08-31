@@ -13,3 +13,4 @@ class Employee(Base):
     sched_out = Column(String, default="18:00")
     category = Column(String, default="trabajador")
     lunch_minutes = Column(Integer, nullable=True)
+    photo_path = Column(String, nullable=True)

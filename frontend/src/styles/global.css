@@ -80,6 +80,8 @@ input:focus,select:focus{outline:none;border-color:var(--brand-teal);box-shadow:
 .btn.ghost{background:none;border:1px solid var(--border);color:var(--muted);}
 .emp-item{display:flex;justify-content:space-between;align-items:center;padding:10px 2px;border-bottom:1px solid var(--border);font-size:13px;}
 .emp-item .pin{font-family:var(--mono);color:var(--muted);font-size:11px;}
+.emp-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--bg);border:1px solid var(--border);}
+.emp-avatar-empty{display:inline-block;}
 .small-btn{background:none;border:none;color:var(--danger);cursor:pointer;font-size:12px;}
 .cat-badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-left:6px;vertical-align:middle;}
 .cat-badge.practicante{background:rgba(0,191,210,0.13);color:var(--brand-teal-deep);}

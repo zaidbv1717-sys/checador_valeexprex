@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from . import crud, security
 from .backup import backup_loop, backup_now
@@ -51,6 +52,9 @@ def get_local_ip():
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        # Migración: employees creados antes de requerir foto no tienen esta columna.
+        conn.execute(text("ALTER TABLE employees ADD COLUMN IF NOT EXISTS photo_path VARCHAR"))
     db = SessionLocal()
     try:
         cfg = crud.get_config(db)

@@ -27,8 +27,10 @@ services:
       MAX_BACKUPS: ${MAX_BACKUPS:-30}
       DEVICE_ALERT_WINDOW_MIN: ${DEVICE_ALERT_WINDOW_MIN:-5}
       BACKUP_DIR: /app/data/backups
+      PHOTOS_DIR: /app/data/photos
     volumes:
       - ./data/backups:/app/data/backups
+      - ./data/photos:/app/data/photos
     depends_on:
       postgres:
         condition: service_healthy

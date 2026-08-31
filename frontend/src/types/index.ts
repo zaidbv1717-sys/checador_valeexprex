@@ -13,6 +13,7 @@ export interface Employee {
   sched_out: string;
   category: string;
   lunch_minutes: number | null;
+  photoUrl: string | null;
 }
 
 export interface Category {
