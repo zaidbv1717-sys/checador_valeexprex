@@ -7,19 +7,19 @@ from .config import settings
 
 
 def backup_now():
-    """Vuelca la base de datos Postgres (vía `docker compose exec`) a data/backups/
-    con fecha y hora, y conserva solo los últimos MAX_BACKUPS. Best-effort: si Docker
-    no está disponible no rompe el arranque del servidor, solo omite el respaldo."""
+    """Vuelca la base de datos Postgres a data/backups/ con fecha y hora (vía `pg_dump`,
+    conectándose directamente a DATABASE_URL), y conserva solo los últimos MAX_BACKUPS.
+    Best-effort: si `pg_dump` no está disponible no rompe el arranque del servidor, solo
+    omite el respaldo. Dentro del contenedor del backend `pg_dump` siempre está instalado
+    (ver Dockerfile); fuera de Docker (venv local en Windows) puede no estarlo."""
     os.makedirs(settings.backup_dir, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     dest = os.path.join(settings.backup_dir, f"attendance_{ts}.sql")
     try:
-        with open(dest, "wb") as f:
-            subprocess.run(
-                ["docker", "compose", "exec", "-T", "postgres", "pg_dump", "-U", settings.postgres_user, settings.postgres_db],
-                check=True, stdout=f, stderr=subprocess.DEVNULL,
-                cwd=settings.compose_project_dir,
-            )
+        subprocess.run(
+            ["pg_dump", settings.database_url, "-f", dest],
+            check=True, capture_output=True,
+        )
     except (FileNotFoundError, subprocess.CalledProcessError, OSError):
         if os.path.exists(dest):
             os.remove(dest)

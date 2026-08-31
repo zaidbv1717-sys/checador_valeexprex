@@ -16,16 +16,35 @@ El código anterior (Python estándar + SQLite + HTML/JS plano) quedó archivado
 
 ## Requisitos
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (para PostgreSQL en desarrollo)
-- Python 3.11+
-- Node.js 20+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- Para desarrollo activo (opcional): Python 3.11+ y Node.js 20+
 
-## Puesta en marcha (desarrollo)
+## Opción 1 — Todo en Docker (más simple)
+
+Levanta PostgreSQL, el backend y el frontend, cada uno en su propio contenedor:
+
+```bash
+docker compose up -d --build
+```
+
+- Frontend (nginx sirviendo el build de React): `http://localhost` — esta es la URL que
+  va en el código QR (pestaña "Código QR" del panel admin), y la que abren los empleados
+  desde su celular en la misma red WiFi.
+- Backend (API directa, útil para depurar): `http://localhost:8000` (docs interactivas en
+  `/docs`).
+
+`--build` solo hace falta la primera vez o después de cambiar código; luego basta con
+`docker compose up -d`. Para bajar todo: `docker compose down` (los datos persisten); para
+borrar también los datos: `docker compose down -v`.
+
+## Opción 2 — Desarrollo local (hot reload)
+
+Útil mientras se edita código, ya que evita reconstruir imágenes en cada cambio.
 
 1. **Base de datos** — desde la raíz del repo:
 
    ```bash
-   docker compose up -d
+   docker compose up -d postgres
    ```
 
 2. **Backend**:
@@ -39,8 +58,6 @@ El código anterior (Python estándar + SQLite + HTML/JS plano) quedó archivado
    uvicorn app.main:app --reload --port 8000
    ```
 
-   La API queda en `http://localhost:8000` (documentación interactiva en `/docs`).
-
 3. **Frontend** (en otra terminal):
 
    ```bash
@@ -53,44 +70,35 @@ El código anterior (Python estándar + SQLite + HTML/JS plano) quedó archivado
    puerto 8000 (ver `frontend/vite.config.ts`), así que el código del frontend usa las
    mismas rutas relativas sin importar el entorno.
 
-## Uso normal (un solo comando)
-
-Una vez compilado el frontend, FastAPI sirve la aplicación completa desde un único
-puerto — igual que la versión anterior:
-
-```bash
-cd frontend && npm run build
-cd ../backend && uvicorn app.main:app --port 8000
-```
-
-Abre `http://localhost:8000` en esta computadora, o la IP de red que imprime la consola
-al arrancar (esa es la URL que va en el código QR — pestaña "Código QR" del panel admin).
-También puedes usar [`iniciar_reloj_checador.bat`](iniciar_reloj_checador.bat) para
-levantar Postgres y el backend con un doble clic (requiere haber hecho `npm run build`
-al menos una vez, o tras cada cambio de frontend).
+Alternativa sin contenedores para el día a día: compilar el frontend una vez
+(`cd frontend && npm run build`) y dejar que el propio backend lo sirva desde
+`http://localhost:8000` — así funciona [`iniciar_reloj_checador.bat`](iniciar_reloj_checador.bat).
+Hay que repetir el `npm run build` después de cada cambio de frontend para que se refleje.
 
 ## Configuración
 
-Variables de entorno del backend (`backend/.env`, ver `backend/.env.example`):
+Variables de entorno del backend (`backend/.env`, ver `backend/.env.example`; en Docker se
+pasan como `environment:` en `docker-compose.yml`):
 
 | Variable | Descripción | Default |
 |---|---|---|
 | `DATABASE_URL` | Cadena de conexión a PostgreSQL | `postgresql://reloj:reloj@localhost:5432/reloj_checador` |
-| `POSTGRES_USER` / `POSTGRES_DB` | Usados por el respaldo automático (`docker compose exec`) | `reloj` / `reloj_checador` |
 | `PORT` | Puerto del backend | `8000` |
 | `MAX_BACKUPS` | Respaldos diarios a conservar | `30` |
 | `DEVICE_ALERT_WINDOW_MIN` | Ventana (minutos) para detectar dispositivo compartido | `5` |
 | `DEFAULT_ADMIN_PASSWORD` | Contraseña de admin sembrada la primera vez que arranca | `1234` |
 
-El respaldo automático corre una vez al día y usa `docker compose exec postgres pg_dump`
-para volcar la base a `data/backups/`, sin requerir un cliente de PostgreSQL instalado en
-Windows — solo Docker Desktop corriendo.
+El respaldo automático corre una vez al día (y también al arrancar) usando `pg_dump`
+contra `DATABASE_URL` directamente, volcando a `data/backups/`. Dentro del contenedor del
+backend `pg_dump` viene incluido (ver `backend/Dockerfile`); si corres el backend fuera de
+Docker (Opción 2) y no tienes el cliente de PostgreSQL instalado, el respaldo simplemente
+se omite sin romper el arranque.
 
 ## Estructura
 
 ```
-backend/     API FastAPI + modelos SQLAlchemy + lógica de reportes
-frontend/    App React + TypeScript (Vite)
+backend/     API FastAPI + modelos SQLAlchemy + lógica de reportes (Dockerfile propio)
+frontend/    App React + TypeScript (Vite), servida por nginx en su contenedor (Dockerfile propio)
 legacy/      Versión anterior (Python stdlib + SQLite), archivada
-docker-compose.yml   PostgreSQL para desarrollo
+docker-compose.yml   postgres + backend + frontend
 ```

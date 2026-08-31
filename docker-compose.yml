@@ -17,5 +17,37 @@ services:
       timeout: 5s
       retries: 10
 
+  backend:
+    build: ./backend
+    container_name: reloj_checador_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-reloj}:${POSTGRES_PASSWORD:-reloj}@postgres:5432/${POSTGRES_DB:-reloj_checador}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-1234}
+      MAX_BACKUPS: ${MAX_BACKUPS:-30}
+      DEVICE_ALERT_WINDOW_MIN: ${DEVICE_ALERT_WINDOW_MIN:-5}
+      BACKUP_DIR: /app/data/backups
+    volumes:
+      - ./data/backups:/app/data/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  frontend:
+    build: ./frontend
+    container_name: reloj_checador_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
 volumes:
   pgdata:

@@ -31,6 +31,11 @@ app.include_router(justifications.router, prefix="/api")
 app.include_router(device_alerts.router, prefix="/api")
 
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
