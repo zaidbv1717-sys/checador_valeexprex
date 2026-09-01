@@ -1,7 +1,7 @@
 from .auth import ConfigUpdate, LoginRequest, RecoverRequest
 from .device_alerts import ResolveAlertRequest
 from .justifications import JustificationCreate, JustificationStatusUpdate
-from .public import PunchRequest, VerifyPinRequest
+from .public import VerifyPinRequest
 from .records import ManualEditRequest
 
 __all__ = [
@@ -11,7 +11,6 @@ __all__ = [
     "ResolveAlertRequest",
     "JustificationCreate",
     "JustificationStatusUpdate",
-    "PunchRequest",
     "VerifyPinRequest",
     "ManualEditRequest",
 ]

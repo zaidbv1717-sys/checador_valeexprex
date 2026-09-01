@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     default_admin_password: str = "1234"
     backup_dir: str = str(REPO_ROOT / "data" / "backups")
     photos_dir: str = str(REPO_ROOT / "data" / "photos")
+    punch_photos_dir: str = str(REPO_ROOT / "data" / "punch_photos")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

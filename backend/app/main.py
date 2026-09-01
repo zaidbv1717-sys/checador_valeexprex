@@ -53,8 +53,9 @@ def get_local_ip():
 def on_startup():
     Base.metadata.create_all(bind=engine)
     with engine.begin() as conn:
-        # Migración: employees creados antes de requerir foto no tienen esta columna.
+        # Migración: employees/records creados antes de requerir foto no tienen esta columna.
         conn.execute(text("ALTER TABLE employees ADD COLUMN IF NOT EXISTS photo_path VARCHAR"))
+        conn.execute(text("ALTER TABLE records ADD COLUMN IF NOT EXISTS photo_path VARCHAR"))
     db = SessionLocal()
     try:
         cfg = crud.get_config(db)

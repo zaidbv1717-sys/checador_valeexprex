@@ -12,6 +12,7 @@ class Record(Base):
     type = Column(String)
     timestamp = Column(DateTime)
     source_ip = Column(String, nullable=True)
+    photo_path = Column(String, nullable=True)
 
 
 class DayNote(Base):

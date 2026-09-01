@@ -6,6 +6,10 @@ from .. import crud, models
 from .common import fmt_hm, period_range
 
 
+def _photo_url(rec):
+    return f"/api/admin/records/{rec.id}/photo" if (rec and rec.photo_path) else None
+
+
 def compute_report_rows(db: Session, period, anchor_date_str, emp_filter):
     employees = {e.id: e for e in db.query(models.Employee).all()}
     cfg = crud.get_config(db)
@@ -91,6 +95,10 @@ def compute_report_rows(db: Session, period, anchor_date_str, emp_filter):
             "hours": round(hours, 2), "retardoMin": retardo_min, "extraHrs": round(extra_hrs, 2),
             "lunchLateMin": lunch_late_min, "missing": missing,
             "note": notes.get((g["employee_id"], g["date"].isoformat()), "") or "",
+            "entradaPhotoUrl": _photo_url(g["entrada"]),
+            "comidaSalidaPhotoUrl": _photo_url(g["comida_salida"]),
+            "comidaEntradaPhotoUrl": _photo_url(g["comida_entrada"]),
+            "salidaPhotoUrl": _photo_url(g["salida"]),
         })
     rows.sort(key=lambda r: r["date"], reverse=True)
     return rows

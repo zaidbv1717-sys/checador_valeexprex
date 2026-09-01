@@ -1,17 +1,30 @@
+import os
 from datetime import datetime
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import crud, models, reports, schemas
+from ..config import settings
 from ..database import get_db
 from ..deps import require_admin
 
 router = APIRouter(prefix="/admin", tags=["records"], dependencies=[Depends(require_admin)])
 
 TYPES = ("entrada", "comida_salida", "comida_entrada", "salida")
+
+
+@router.get("/records/{record_id}/photo")
+def get_record_photo(record_id: str, db: Session = Depends(get_db)):
+    rec = db.get(models.Record, record_id)
+    if not rec or not rec.photo_path:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    path = os.path.join(settings.punch_photos_dir, rec.photo_path)
+    if not os.path.isfile(path):
+        return JSONResponse({"error": "not found"}, status_code=404)
+    return FileResponse(path)
 
 
 @router.get("/records")

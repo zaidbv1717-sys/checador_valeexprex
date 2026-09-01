@@ -1,8 +1,27 @@
 import { useEffect, useState } from "react";
 import { api, downloadCsv } from "../../api/client";
+import PhotoModal from "../../components/PhotoModal";
 import { useToast } from "../../components/Toast";
 import type { Absence, DeviceAlert, EditTarget, Employee, ReportRow } from "../../types";
 import { fmtShortDate } from "../../utils/format";
+
+function StageCell({ time, photoUrl, onView }: { time: string | null; photoUrl: string | null; onView: (url: string) => void }) {
+  return (
+    <td>
+      {time || "—"}
+      {photoUrl && (
+        <button
+          className="edit-icon"
+          style={{ marginLeft: 4, fontSize: 11 }}
+          title="Ver foto"
+          onClick={() => onView(photoUrl)}
+        >
+          📷
+        </button>
+      )}
+    </td>
+  );
+}
 
 const PERIODS: [string, string][] = [
   ["dia", "Día"],
@@ -20,6 +39,7 @@ export default function RecordsTab() {
   const [filterDate, setFilterDate] = useState("");
   const [filterEmp, setFilterEmp] = useState("all");
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
 
   const query = `?period=${period}&date=${filterDate}&emp=${encodeURIComponent(filterEmp)}`;
 
@@ -183,10 +203,10 @@ export default function RecordsTab() {
                 <tr key={i}>
                   <td>{r.employeeName}</td>
                   <td>{fmtShortDate(r.date)}</td>
-                  <td>{r.entrada || "—"}</td>
-                  <td>{r.comida_salida || "—"}</td>
-                  <td>{r.comida_entrada || "—"}</td>
-                  <td>{r.salida || "—"}</td>
+                  <StageCell time={r.entrada} photoUrl={r.entradaPhotoUrl} onView={setViewingPhoto} />
+                  <StageCell time={r.comida_salida} photoUrl={r.comidaSalidaPhotoUrl} onView={setViewingPhoto} />
+                  <StageCell time={r.comida_entrada} photoUrl={r.comidaEntradaPhotoUrl} onView={setViewingPhoto} />
+                  <StageCell time={r.salida} photoUrl={r.salidaPhotoUrl} onView={setViewingPhoto} />
                   <td>{r.hours.toFixed(2)}</td>
                   <td>
                     {r.missing && <span className="badge-mini bad">Falta</span>}{" "}
@@ -214,6 +234,7 @@ export default function RecordsTab() {
           </tbody>
         </table>
       </div>
+      {viewingPhoto && <PhotoModal url={viewingPhoto} onClose={() => setViewingPhoto(null)} />}
     </>
   );
 }

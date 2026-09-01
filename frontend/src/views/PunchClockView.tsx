@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import { useToast } from "../components/Toast";
 import type { ActiveEmployee } from "../types";
@@ -10,6 +10,9 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
   const [pin, setPin] = useState("");
   const [activeEmployee, setActiveEmployee] = useState<ActiveEmployee | null>(null);
   const [todayDone, setTodayDone] = useState<Record<string, string>>({});
+  const [pendingType, setPendingType] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 1000);
@@ -46,13 +49,31 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
     setPin((p) => p.slice(0, -1));
   }
 
-  async function doPunch(type: string) {
+  function requestPunch(type: string) {
+    setPendingType(type);
+    if (photoInputRef.current) {
+      photoInputRef.current.value = "";
+      photoInputRef.current.click();
+    }
+  }
+
+  async function onPhotoSelected(file: File | null) {
+    const type = pendingType;
+    setPendingType(null);
     const emp = activeEmployee;
-    if (!emp) return;
+    if (!emp || !type || !file) return;
+
+    setSubmitting(true);
+    const form = new FormData();
+    form.append("employeeId", emp.id);
+    form.append("employeeName", emp.name);
+    form.append("type", type);
+    form.append("photo", file);
     const r = await api<{ ok: boolean; time?: string; error?: string }>("/api/punch", {
       method: "POST",
-      body: JSON.stringify({ employeeId: emp.id, employeeName: emp.name, type }),
+      body: form,
     });
+    setSubmitting(false);
     if (r.ok) {
       toast(TYPE_LABEL[type] + " registrada — " + r.time);
     } else {
@@ -131,8 +152,8 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
             <div className="sub">Paso {doneCount + 1} de 4</div>
           </div>
           {stageDots}
-          <button className="stage-btn" onClick={() => doPunch(nextStage)}>
-            Marcar {TYPE_LABEL[nextStage]}
+          <button className="stage-btn" disabled={submitting} onClick={() => requestPunch(nextStage)}>
+            {submitting ? "Enviando…" : `Marcar ${TYPE_LABEL[nextStage]}`}
           </button>
           <button className="back-link" onClick={() => { setActiveEmployee(null); setTodayDone({}); }}>
             Cambiar de empleado
@@ -160,6 +181,14 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
         </div>
         <div className="body-pad">{body}</div>
       </div>
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        capture="user"
+        style={{ display: "none" }}
+        onChange={(e) => onPhotoSelected(e.target.files?.[0] || null)}
+      />
     </div>
   );
 }

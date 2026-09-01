@@ -38,6 +38,10 @@ export interface ReportRow {
   lunchLateMin: number;
   missing: boolean;
   note: string;
+  entradaPhotoUrl: string | null;
+  comidaSalidaPhotoUrl: string | null;
+  comidaEntradaPhotoUrl: string | null;
+  salidaPhotoUrl: string | null;
 }
 
 export interface Absence {
