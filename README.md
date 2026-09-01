@@ -70,10 +70,30 @@ borrar también los datos: `docker compose down -v`.
    puerto 8000 (ver `frontend/vite.config.ts`), así que el código del frontend usa las
    mismas rutas relativas sin importar el entorno.
 
-Alternativa sin contenedores para el día a día: compilar el frontend una vez
-(`cd frontend && npm run build`) y dejar que el propio backend lo sirva desde
-`http://localhost:8000` — así funciona [`iniciar_reloj_checador.bat`](iniciar_reloj_checador.bat).
-Hay que repetir el `npm run build` después de cada cambio de frontend para que se refleje.
+## Uso diario — un solo doble clic
+
+[`iniciar_reloj_checador.bat`](iniciar_reloj_checador.bat) hace todo lo de la Opción 1: si
+Docker Desktop no está abierto lo abre y espera a que esté listo, y luego levanta los tres
+contenedores (`docker compose up -d`). No hace falta dejar ninguna ventana abierta — los
+contenedores siguen corriendo en segundo plano aunque la cierres.
+
+### Arranque automático al prender la computadora
+
+El sistema ya está configurado para iniciar solo al iniciar sesión en Windows: hay un acceso
+directo a este `.bat` en la carpeta de Inicio (`shell:startup`). Además, los tres
+contenedores tienen política `restart: unless-stopped` en `docker-compose.yml`, así que si
+Docker Desktop se cae o la computadora se reinicia de golpe, Docker los vuelve a levantar
+solo en cuanto el motor de Docker arranca — sin depender del `.bat` para eso.
+
+Si algún día quieres quitar el arranque automático: abre `shell:startup` (Win+R, pega eso, Enter)
+y borra el acceso directo "Reloj Checador".
+
+Nota: esto arranca el sistema en cuanto alguien **inicia sesión** en Windows con esta cuenta.
+Si en vez de eso quieres que arranque antes de que nadie inicie sesión (una computadora que
+se queda encendida como kiosco sin que nadie la use directamente), habría que configurar
+además el inicio de sesión automático de Windows — es un cambio de seguridad distinto
+(guarda la sesión sin pedir contraseña al prender), avísame si es lo que necesitas y lo
+configuramos.
 
 ## Configuración
 

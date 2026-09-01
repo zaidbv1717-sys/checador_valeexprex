@@ -1,34 +1,48 @@
 @echo off
-title Reloj Checador
+title Reloj Checador - Iniciando
 cd /d "%~dp0"
-echo Iniciando el Reloj Checador...
-echo (Esta ventana debe quedar abierta mientras el sistema este en uso)
-echo.
 
-echo Levantando la base de datos (Docker)...
+echo Verificando Docker Desktop...
+docker info >nul 2>&1
+if not errorlevel 1 goto docker_ready
+
+echo Docker Desktop no esta corriendo, iniciandolo...
+start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+
+echo Esperando a que Docker este listo (puede tardar 1-2 minutos)...
+set /a tries=0
+:wait_docker
+timeout /t 5 /nobreak >nul
+docker info >nul 2>&1
+if not errorlevel 1 goto docker_ready
+set /a tries+=1
+if %tries% GEQ 30 (
+    echo.
+    echo Docker no respondio a tiempo. Abre Docker Desktop manualmente y
+    echo vuelve a ejecutar este archivo.
+    pause
+    exit /b 1
+)
+goto wait_docker
+
+:docker_ready
+echo Docker listo.
+echo.
+echo Levantando el sistema (base de datos + backend + frontend)...
 docker compose up -d
 if errorlevel 1 (
-    echo No se pudo iniciar Docker. Asegurate de que Docker Desktop este abierto.
+    echo.
+    echo Hubo un problema al iniciar los contenedores. Revisa el mensaje de arriba.
     pause
     exit /b 1
 )
-
-if not exist "backend\venv\Scripts\activate.bat" (
-    echo No se encontro el entorno virtual del backend.
-    echo Ejecuta primero: cd backend ^&^& python -m venv venv ^&^& venv\Scripts\activate ^&^& pip install -r requirements.txt
-    pause
-    exit /b 1
-)
-
-if not exist "frontend\dist\index.html" (
-    echo Aviso: el frontend no esta compilado todavia.
-    echo Ejecuta: cd frontend ^&^& npm install ^&^& npm run build
-)
-
-call backend\venv\Scripts\activate.bat
-cd backend
-uvicorn app.main:app --port 8000
 
 echo.
-echo El servidor se detuvo. Si esto fue un error, revisa el mensaje de arriba.
-pause
+echo ========================================================
+echo  Reloj checador listo
+echo  En esta computadora:    http://localhost
+echo  Para el QR (celulares): revisa la pestana "Codigo QR"
+echo                           dentro del panel de administracion
+echo ========================================================
+timeout /t 8
+exit /b 0
