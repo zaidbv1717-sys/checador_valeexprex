@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import CameraCapture from "../components/CameraCapture";
 import { useToast } from "../components/Toast";
 import type { ActiveEmployee } from "../types";
 import { fmtDate, fmtTime, STAGES, TYPE_LABEL } from "../utils/format";
@@ -12,7 +13,6 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
   const [todayDone, setTodayDone] = useState<Record<string, string>>({});
   const [pendingType, setPendingType] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 1000);
@@ -51,17 +51,13 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
 
   function requestPunch(type: string) {
     setPendingType(type);
-    if (photoInputRef.current) {
-      photoInputRef.current.value = "";
-      photoInputRef.current.click();
-    }
   }
 
-  async function onPhotoSelected(file: File | null) {
+  async function onPhotoCaptured(file: File) {
     const type = pendingType;
     setPendingType(null);
     const emp = activeEmployee;
-    if (!emp || !type || !file) return;
+    if (!emp || !type) return;
 
     setSubmitting(true);
     const form = new FormData();
@@ -81,6 +77,10 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
     }
     setActiveEmployee(null);
     setTodayDone({});
+  }
+
+  function cancelCapture() {
+    setPendingType(null);
   }
 
   let body;
@@ -181,14 +181,7 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
         </div>
         <div className="body-pad">{body}</div>
       </div>
-      <input
-        ref={photoInputRef}
-        type="file"
-        accept="image/*"
-        capture="user"
-        style={{ display: "none" }}
-        onChange={(e) => onPhotoSelected(e.target.files?.[0] || null)}
-      />
+      {pendingType && <CameraCapture onCapture={onPhotoCaptured} onCancel={cancelCapture} />}
     </div>
   );
 }
