@@ -117,6 +117,7 @@ export default function EmployeesTab() {
             ref={photoInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp"
+            capture="user"
             onChange={(e) => setPhoto(e.target.files?.[0] || null)}
           />
         </div>
