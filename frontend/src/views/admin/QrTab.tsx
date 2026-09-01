@@ -5,8 +5,8 @@ export default function QrTab() {
 
   return (
     <>
-      <div className="field-label">Este es el enlace que deben escanear los empleados</div>
       <div className="qr-print-area">
+        <div className="field-label">Este es el enlace que deben escanear los empleados</div>
         <div className="qr-box">
           <div id="qrcanvas" style={{ display: "flex", justifyContent: "center", margin: "14px auto" }}>
             <QRCodeSVG value={origin} size={190} fgColor="#1F2937" bgColor="#ffffff" />
