@@ -16,6 +16,7 @@ ENV/
 *.sqlite3
 data/backups/
 data/photos/
+data/punch_photos/
 
 # Node / frontend
 node_modules/
