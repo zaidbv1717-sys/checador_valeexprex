@@ -34,7 +34,6 @@ export interface ReportRow {
   salida: string | null;
   hours: number;
   retardoMin: number;
-  extraHrs: number;
   lunchLateMin: number;
   missing: boolean;
   note: string;

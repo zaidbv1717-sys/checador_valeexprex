@@ -62,7 +62,6 @@ export default function RecordsTab() {
   const missing = rows.filter((r) => r.missing).slice(0, 8);
   const unjustified = absences.filter((a) => !a.justified);
   const totalHrs = rows.reduce((s, r) => s + r.hours, 0);
-  const totalExtra = rows.reduce((s, r) => s + r.extraHrs, 0);
   const lateCount = rows.filter((r) => r.retardoMin > 0).length;
   const missingCount = rows.filter((r) => r.missing).length;
 
@@ -161,10 +160,6 @@ export default function RecordsTab() {
           <div className="n">{totalHrs.toFixed(1)}</div>
           <div className="l">Horas</div>
         </div>
-        <div className="stat-box ok">
-          <div className="n">{totalExtra.toFixed(1)}</div>
-          <div className="l">Extra</div>
-        </div>
         <div className="stat-box warn">
           <div className="n">{lateCount}</div>
           <div className="l">Retardos</div>
@@ -179,7 +174,7 @@ export default function RecordsTab() {
 
       <div className="row">
         <button className="btn secondary" style={{ flex: 1 }} onClick={exportCsv}>
-          Exportar CSV
+          Exportar Excel
         </button>
       </div>
       <div className="table-scroll">
@@ -211,7 +206,6 @@ export default function RecordsTab() {
                   <td>
                     {r.missing && <span className="badge-mini bad">Falta</span>}{" "}
                     {r.retardoMin > 0 && <span className="badge-mini warn">+{r.retardoMin}m</span>}{" "}
-                    {r.extraHrs > 0 && <span className="badge-mini ok">+{r.extraHrs.toFixed(1)}h</span>}{" "}
                     {r.lunchLateMin > 0 && <span className="badge-mini warn">comida +{r.lunchLateMin}m</span>}
                     {r.note && (
                       <div style={{ fontSize: "10.5px", color: "var(--muted)", marginTop: 2 }}>📝 {r.note}</div>

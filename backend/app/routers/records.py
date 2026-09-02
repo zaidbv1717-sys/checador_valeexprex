@@ -42,7 +42,8 @@ def get_absences(period: str = "dia", date: str = "", emp: str = "all", db: Sess
 @router.get("/export.csv")
 def export_csv(period: str = "mes", date: str = "", emp: str = "all", db: Session = Depends(get_db)):
     rows = reports.compute_report_rows(db, period, date, emp)
-    data = reports.build_csv(db, rows, period, date, emp)
+    absences = reports.compute_absences(db, period, date, emp)
+    data = reports.build_csv(db, rows, absences, period, date, emp)
     return Response(
         content=data,
         media_type="text/csv; charset=utf-8",
