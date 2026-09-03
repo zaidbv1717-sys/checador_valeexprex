@@ -1,4 +1,6 @@
 import os
+import re
+import unicodedata
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
@@ -26,6 +28,12 @@ ALLOWED_PHOTO_TYPES = {
     "image/png": ".png",
     "image/webp": ".webp",
 }
+
+
+def _slugify(text: str) -> str:
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    text = re.sub(r"[^a-zA-Z0-9]+", "_", text).strip("_").lower()
+    return text or "empleado"
 
 
 @router.get("/today")
@@ -96,7 +104,7 @@ async def punch(
             )
 
     record_id = crud.uid()
-    photo_filename = f"{record_id}{ext}"
+    photo_filename = f"{_slugify(employeeName)}_{type}_{now.strftime('%Y%m%d_%H%M%S')}_{record_id}{ext}"
     os.makedirs(settings.punch_photos_dir, exist_ok=True)
     with open(os.path.join(settings.punch_photos_dir, photo_filename), "wb") as f:
         f.write(photo_bytes)
