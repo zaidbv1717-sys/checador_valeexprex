@@ -1,13 +1,21 @@
 import io
+import os
 from datetime import datetime
 
 from openpyxl import Workbook
+from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
+from PIL import Image as PILImage
 from sqlalchemy.orm import Session
 
 from .. import models
+from ..config import settings
 from .common import CATEGORY_LABELS, JUSTIFICATION_TYPE_LABELS
+
+THUMB_SIZE = (110, 110)
+THUMB_ROW_HEIGHT = 85
+THUMB_COL_WIDTH = 18
 
 HEADER_FILL = PatternFill("solid", fgColor="123B40")
 HEADER_FONT = Font(bold=True, color="FFFFFF")
@@ -132,19 +140,43 @@ def _write_payroll_sheet(ws, db, rows, absences, period, date_str, emp_filter):
         ws.column_dimensions[get_column_letter(i)].width = w
 
 
+def _thumbnail_image(path):
+    try:
+        img = PILImage.open(path)
+        img.thumbnail(THUMB_SIZE)
+        buf = io.BytesIO()
+        img.convert("RGB").save(buf, format="JPEG")
+        buf.seek(0)
+        return XLImage(buf)
+    except Exception:
+        return None
+
+
 def _write_photos_sheet(ws, photo_log):
-    ws.append(PHOTOS_HEADER)
+    header = PHOTOS_HEADER + ["Foto"]
+    ws.append(header)
     _style_row(ws, 1, font=HEADER_FONT, fill=HEADER_FILL)
+    photo_col = get_column_letter(len(header))
 
     for p in photo_log:
         fecha_dt = datetime.strptime(p["date"], "%Y-%m-%d")
         ws.append([
             p["employeeName"], fecha_dt.strftime("%d/%m/%Y"), p["dayLabel"],
-            p["type"], p["time"] or "—", p["photoFile"] or "",
+            p["type"], p["time"] or "—", p["photoFile"] or "", "",
         ])
+        row_idx = ws.max_row
+        ws.row_dimensions[row_idx].height = THUMB_ROW_HEIGHT
+
+        if p.get("photoFile"):
+            path = os.path.join(settings.punch_photos_dir, p["photoFile"])
+            if os.path.isfile(path):
+                thumb = _thumbnail_image(path)
+                if thumb:
+                    ws.add_image(thumb, f"{photo_col}{row_idx}")
 
     for i, w in enumerate([22, 12, 11, 16, 8, 34], start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
+    ws.column_dimensions[photo_col].width = THUMB_COL_WIDTH
 
 
 def build_xlsx(db: Session, rows, absences, photo_log, period, date_str, emp_filter):
