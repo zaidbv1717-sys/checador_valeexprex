@@ -39,15 +39,16 @@ def get_absences(period: str = "dia", date: str = "", emp: str = "all", db: Sess
     return {"absences": absences}
 
 
-@router.get("/export.csv")
-def export_csv(period: str = "mes", date: str = "", emp: str = "all", db: Session = Depends(get_db)):
+@router.get("/export.xlsx")
+def export_xlsx(period: str = "mes", date: str = "", emp: str = "all", db: Session = Depends(get_db)):
     rows = reports.compute_report_rows(db, period, date, emp)
     absences = reports.compute_absences(db, period, date, emp)
-    data = reports.build_csv(db, rows, absences, period, date, emp)
+    photo_log = reports.compute_photo_log(db, period, date, emp)
+    data = reports.build_xlsx(db, rows, absences, photo_log, period, date, emp)
     return Response(
         content=data,
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="registros_asistencia.csv"'},
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="registros_asistencia.xlsx"'},
     )
 
 

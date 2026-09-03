@@ -70,8 +70,8 @@ export default function RecordsTab() {
     load();
   }
 
-  function exportCsv() {
-    downloadCsv("/api/admin/export.csv" + query, "registros_asistencia.csv");
+  function exportXlsx() {
+    downloadCsv("/api/admin/export.xlsx" + query, "registros_asistencia.xlsx");
   }
 
   function openEdit(r: ReportRow) {
@@ -173,7 +173,7 @@ export default function RecordsTab() {
       {editTarget && <EditPanel target={editTarget} onCancel={() => setEditTarget(null)} onSave={saveEdit} />}
 
       <div className="row">
-        <button className="btn secondary" style={{ flex: 1 }} onClick={exportCsv}>
+        <button className="btn secondary" style={{ flex: 1 }} onClick={exportXlsx}>
           Exportar Excel
         </button>
       </div>

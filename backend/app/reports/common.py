@@ -13,6 +13,13 @@ JUSTIFICATION_TYPE_LABELS = {
     "vacaciones": "Vacaciones",
 }
 
+PUNCH_TYPE_LABELS = {
+    "entrada": "Entrada",
+    "comida_salida": "Salida a comer",
+    "comida_entrada": "Regreso de comer",
+    "salida": "Salida",
+}
+
 
 def period_range(period, anchor_date_str):
     if anchor_date_str:
