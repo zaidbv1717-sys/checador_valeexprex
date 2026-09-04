@@ -68,6 +68,7 @@ export default function JustificationsTab() {
   }
 
   async function deleteJust(id: string) {
+    if (!window.confirm("¿Eliminar este permiso? Esta acción no se puede deshacer.")) return;
     await api("/api/admin/justifications/" + id, { method: "DELETE" });
     load();
   }

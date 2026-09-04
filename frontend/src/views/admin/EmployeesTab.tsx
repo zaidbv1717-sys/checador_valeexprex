@@ -66,7 +66,8 @@ export default function EmployeesTab() {
     }
   }
 
-  async function deleteEmployee(id: string) {
+  async function deleteEmployee(id: string, name: string) {
+    if (!window.confirm(`¿Eliminar a ${name}? Esta acción no se puede deshacer.`)) return;
     const r = await api<{ ok: boolean; error?: string }>("/api/admin/employees/" + id, { method: "DELETE" });
     if (!r.ok) {
       toast(r.error || "No se pudo eliminar");
@@ -154,7 +155,7 @@ export default function EmployeesTab() {
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <span className="pin">PIN {e.pin}</span>
-                <button className="small-btn" onClick={() => deleteEmployee(e.id)}>
+                <button className="small-btn" onClick={() => deleteEmployee(e.id, e.name)}>
                   Eliminar
                 </button>
               </span>
