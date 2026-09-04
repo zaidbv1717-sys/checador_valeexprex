@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import CameraCapture from "../components/CameraCapture";
+import PixelWorld from "../components/PixelWorld";
 import { useToast } from "../components/Toast";
 import type { ActiveEmployee } from "../types";
 import { fmtDate, fmtTime, STAGES, TYPE_LABEL } from "../utils/format";
@@ -176,6 +177,7 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
       </div>
       <div className="card">
         <div className="clockpanel">
+          <PixelWorld />
           <div className="date">{fmtDate(now)}</div>
           <div className="time">{fmtTime(now)}</div>
         </div>
