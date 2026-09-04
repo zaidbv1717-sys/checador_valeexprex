@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AdminSessionProvider, useAdminSession } from "./context/AdminSessionContext";
+import BackgroundVines from "./components/BackgroundVines";
 import { ToastProvider } from "./components/Toast";
 import PunchClockView from "./views/PunchClockView";
 import AdminLoginView from "./views/AdminLoginView";
@@ -12,7 +13,9 @@ function AppShell() {
   const { setPass } = useAdminSession();
 
   return (
-    <div id="app-root">
+    <>
+      <BackgroundVines />
+      <div id="app-root">
       {view === "clock" && <PunchClockView onGoAdmin={() => setView("admin-login")} />}
       {view === "admin-login" && (
         <AdminLoginView
@@ -28,7 +31,8 @@ function AppShell() {
         <AdminRecoverView onDone={() => setView("admin-login")} onCancel={() => setView("admin-login")} />
       )}
       {view === "admin" && <AdminDashboard onExit={() => setView("clock")} />}
-    </div>
+      </div>
+    </>
   );
 }
 
