@@ -59,7 +59,7 @@ def _style_row(ws, row_idx, font=None, fill=None):
 
 
 def _write_payroll_sheet(ws, db, rows, absences, period, date_str, emp_filter):
-    period_label = {"dia": "Día", "semana": "Semana", "mes": "Mes"}.get(period, period)
+    period_label = {"dia": "Día", "semana": "Semana", "quincena": "Quincena"}.get(period, period)
     emp_label = "Todos" if (not emp_filter or emp_filter == "all") else emp_filter
     anchor = date_str or datetime.now().strftime("%Y-%m-%d")
     categories = {e.id: e.category for e in db.query(models.Employee).all()}

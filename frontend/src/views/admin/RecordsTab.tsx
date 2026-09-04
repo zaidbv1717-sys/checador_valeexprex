@@ -26,7 +26,7 @@ function StageCell({ time, photoUrl, onView }: { time: string | null; photoUrl: 
 const PERIODS: [string, string][] = [
   ["dia", "Día"],
   ["semana", "Semana"],
-  ["mes", "Mes"],
+  ["quincena", "Quincena"],
 ];
 
 export default function RecordsTab() {

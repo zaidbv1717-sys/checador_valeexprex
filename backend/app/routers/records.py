@@ -40,7 +40,7 @@ def get_absences(period: str = "dia", date: str = "", emp: str = "all", db: Sess
 
 
 @router.get("/export.xlsx")
-def export_xlsx(period: str = "mes", date: str = "", emp: str = "all", db: Session = Depends(get_db)):
+def export_xlsx(period: str = "quincena", date: str = "", emp: str = "all", db: Session = Depends(get_db)):
     rows = reports.compute_report_rows(db, period, date, emp)
     absences = reports.compute_absences(db, period, date, emp)
     photo_log = reports.compute_photo_log(db, period, date, emp)
