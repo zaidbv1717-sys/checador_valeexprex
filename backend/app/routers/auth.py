@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from .. import crud, rate_limit, schemas, security
+from .. import crud, schemas, security
 from ..config import settings
 from ..database import get_db
 from ..deps import require_admin
@@ -11,14 +11,7 @@ router = APIRouter(prefix="/admin", tags=["admin-auth"])
 
 
 @router.post("/login")
-def login(body: schemas.LoginRequest, request: Request, db: Session = Depends(get_db)):
-    client_ip = request.client.host if request.client else "unknown"
-    key = f"admin-login:{client_ip}"
-    if rate_limit.is_locked(key):
-        return JSONResponse(
-            {"ok": False, "error": "Demasiados intentos. Espera unos minutos e intenta de nuevo."},
-            status_code=429,
-        )
+def login(body: schemas.LoginRequest, db: Session = Depends(get_db)):
     cfg = crud.get_config(db)
     stored_hash = cfg.get("password")
     if stored_hash is None:
@@ -26,9 +19,7 @@ def login(body: schemas.LoginRequest, request: Request, db: Session = Depends(ge
     else:
         ok = security.verify_password(body.password, stored_hash)
     if ok:
-        rate_limit.reset(key)
         return {"ok": True, "usingDefaultPassword": stored_hash is None}
-    rate_limit.register_failure(key)
     return {"ok": False}
 
 
