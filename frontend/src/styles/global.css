@@ -20,26 +20,20 @@ body{margin:0;}
 #root{
   position:relative;
   font-family:var(--sans);
-  background:radial-gradient(ellipse at 50% 25%,#123638 0%,#0a2224 45%,#051213 100%);
+  background:#d7d9da;
   color:var(--ink);
   min-height:100vh;
   padding:32px 16px 60px;
   overflow-x:hidden;
 }
-.bg-vines{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
-.bg-vines svg{width:100%;height:100%;}
-.bg-vines-group{animation:bg-vines-drift 40s ease-in-out infinite;transform-origin:50% 50%;}
+.bg-texture{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+.bg-texture svg{width:100%;height:100%;}
 #app-root{position:relative;z-index:1;}
-@keyframes bg-vines-drift{
-  0%{transform:scale(1) rotate(0deg);}
-  50%{transform:scale(1.06) rotate(1.2deg);}
-  100%{transform:scale(1) rotate(0deg);}
-}
 .wrap{max-width:420px;margin:0 auto;}
 .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
-.brand{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:700;letter-spacing:-0.01em;color:#EAF7F6;}
+.brand{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:700;letter-spacing:-0.01em;color:var(--ink);}
 .brand img{height:28px;width:auto;display:block;}
-.admin-link{font-size:12px;color:#EAF7F6;background:rgba(255,255,255,0.06);border:1px solid rgba(234,247,246,0.25);padding:6px 12px;border-radius:6px;cursor:pointer;}
+.admin-link{font-size:12px;color:var(--muted);background:rgba(255,255,255,0.55);border:1px solid var(--border);padding:6px 12px;border-radius:6px;cursor:pointer;}
 .admin-link:hover{color:var(--brand-teal-deep);border-color:var(--brand-teal);}
 
 .card{background:var(--paper);border-radius:14px;border:1px solid var(--border);overflow:hidden;margin-bottom:16px;box-shadow:0 1px 2px rgba(18,59,64,0.04);}
@@ -88,7 +82,7 @@ body{margin:0;}
 .msg-empty{text-align:center;color:var(--muted);font-size:13px;padding:20px 0;}
 
 .admin-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
-.admin-header h2{font-size:16px;margin:0;font-weight:700;color:#EAF7F6;}
+.admin-header h2{font-size:16px;margin:0;font-weight:700;color:var(--ink);}
 .tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:4px;}
 .tab-btn{flex:1;padding:9px 0;font-size:12px;font-weight:600;border:none;background:transparent;border-radius:7px;cursor:pointer;color:var(--muted);min-width:70px;transition:background 0.15s,color 0.15s;}
 .tab-btn:hover:not(.active){background:rgba(0,150,164,0.08);color:var(--brand-teal-deep);}

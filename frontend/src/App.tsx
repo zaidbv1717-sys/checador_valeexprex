@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AdminSessionProvider, useAdminSession } from "./context/AdminSessionContext";
-import BackgroundVines from "./components/BackgroundVines";
+import BackgroundTexture from "./components/BackgroundTexture";
 import { ToastProvider } from "./components/Toast";
 import PunchClockView from "./views/PunchClockView";
 import AdminLoginView from "./views/AdminLoginView";
@@ -14,7 +14,7 @@ function AppShell() {
 
   return (
     <>
-      <BackgroundVines />
+      <BackgroundTexture />
       <div id="app-root">
       {view === "clock" && <PunchClockView onGoAdmin={() => setView("admin-login")} />}
       {view === "admin-login" && (
