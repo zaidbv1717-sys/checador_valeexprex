@@ -115,10 +115,21 @@ async def create_employee(
 @router.delete("/employees/{employee_id}")
 def delete_employee(employee_id: str, db: Session = Depends(get_db)):
     emp = db.get(models.Employee, employee_id)
-    if emp and emp.photo_path:
+    if not emp:
+        return {"ok": True}
+    has_records = db.query(models.Record.id).filter(models.Record.employee_id == employee_id).first() is not None
+    if has_records:
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "No se puede eliminar: este empleado tiene registros de asistencia. Consérvalo para no perder el historial.",
+            },
+            status_code=400,
+        )
+    if emp.photo_path:
         photo_file = os.path.join(settings.photos_dir, emp.photo_path)
         if os.path.isfile(photo_file):
             os.remove(photo_file)
-    db.query(models.Employee).filter(models.Employee.id == employee_id).delete()
+    db.delete(emp)
     db.commit()
     return {"ok": True}

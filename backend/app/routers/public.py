@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from .. import crud, models, schemas
+from .. import crud, models, rate_limit, schemas
 from ..alerts import check_device_alert
 from ..config import settings
 from ..database import get_db
@@ -48,10 +48,19 @@ def get_today(employeeId: str = "", db: Session = Depends(get_db)):
 
 
 @router.post("/verify-pin")
-def verify_pin(body: schemas.VerifyPinRequest, db: Session = Depends(get_db)):
+def verify_pin(body: schemas.VerifyPinRequest, request: Request, db: Session = Depends(get_db)):
+    client_ip = request.client.host if request.client else "unknown"
+    key = f"pin:{client_ip}"
+    if rate_limit.is_locked(key):
+        return JSONResponse(
+            {"ok": False, "error": "Demasiados intentos. Espera unos minutos e intenta de nuevo."},
+            status_code=429,
+        )
     emp = db.query(models.Employee).filter(models.Employee.pin == body.pin).first()
     if emp:
+        rate_limit.reset(key)
         return {"ok": True, "employee": {"id": emp.id, "name": emp.name}}
+    rate_limit.register_failure(key)
     return {"ok": False}
 
 

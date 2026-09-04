@@ -67,7 +67,11 @@ export default function EmployeesTab() {
   }
 
   async function deleteEmployee(id: string) {
-    await api("/api/admin/employees/" + id, { method: "DELETE" });
+    const r = await api<{ ok: boolean; error?: string }>("/api/admin/employees/" + id, { method: "DELETE" });
+    if (!r.ok) {
+      toast(r.error || "No se pudo eliminar");
+      return;
+    }
     load();
   }
 

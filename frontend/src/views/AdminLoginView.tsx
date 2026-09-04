@@ -9,20 +9,20 @@ export default function AdminLoginView({
 }: {
   onCancel: () => void;
   onForgot: () => void;
-  onLoggedIn: (password: string) => void;
+  onLoggedIn: (password: string, usingDefaultPassword: boolean) => void;
 }) {
   const toast = useToast();
   const [password, setPassword] = useState("");
 
   async function login() {
-    const r = await api<{ ok: boolean }>("/api/admin/login", {
+    const r = await api<{ ok: boolean; usingDefaultPassword?: boolean; error?: string }>("/api/admin/login", {
       method: "POST",
       body: JSON.stringify({ password }),
     });
     if (r.ok) {
-      onLoggedIn(password);
+      onLoggedIn(password, !!r.usingDefaultPassword);
     } else {
-      toast("Contraseña incorrecta");
+      toast(r.error || "Contraseña incorrecta");
     }
   }
 

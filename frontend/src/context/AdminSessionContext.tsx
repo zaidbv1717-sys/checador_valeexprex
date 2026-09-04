@@ -4,12 +4,15 @@ import { setAdminPass } from "../api/client";
 interface AdminSessionValue {
   adminPass: string;
   setPass: (pass: string) => void;
+  usingDefaultPassword: boolean;
+  setUsingDefaultPassword: (v: boolean) => void;
 }
 
 const AdminSessionContext = createContext<AdminSessionValue | null>(null);
 
 export function AdminSessionProvider({ children }: { children: ReactNode }) {
   const [adminPass, setAdminPassState] = useState("");
+  const [usingDefaultPassword, setUsingDefaultPassword] = useState(false);
 
   const setPass = (pass: string) => {
     setAdminPassState(pass);
@@ -17,7 +20,7 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AdminSessionContext.Provider value={{ adminPass, setPass }}>
+    <AdminSessionContext.Provider value={{ adminPass, setPass, usingDefaultPassword, setUsingDefaultPassword }}>
       {children}
     </AdminSessionContext.Provider>
   );

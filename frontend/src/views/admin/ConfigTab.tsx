@@ -5,7 +5,7 @@ import { useToast } from "../../components/Toast";
 
 export default function ConfigTab() {
   const toast = useToast();
-  const { setPass } = useAdminSession();
+  const { setPass, setUsingDefaultPassword } = useAdminSession();
   const [lunchMinutes, setLunchMinutes] = useState("90");
   const [recoveryCode, setRecoveryCode] = useState("");
   const [newPass, setNewPass] = useState("");
@@ -29,6 +29,7 @@ export default function ConfigTab() {
     }
     await api("/api/admin/config", { method: "POST", body: JSON.stringify({ password: newPass }) });
     setPass(newPass);
+    setUsingDefaultPassword(false);
     toast("Contraseña actualizada");
     setNewPass("");
   }

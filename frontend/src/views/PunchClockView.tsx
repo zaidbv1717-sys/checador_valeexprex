@@ -31,7 +31,7 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
     setPin(next);
     if (next.length === 4) {
       window.setTimeout(async () => {
-        const r = await api<{ ok: boolean; employee?: ActiveEmployee }>("/api/verify-pin", {
+        const r = await api<{ ok: boolean; employee?: ActiveEmployee; error?: string }>("/api/verify-pin", {
           method: "POST",
           body: JSON.stringify({ pin: next }),
         });
@@ -40,7 +40,7 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
           setActiveEmployee(r.employee);
           await refreshToday(r.employee);
         } else {
-          toast("PIN no encontrado");
+          toast(r.error || "PIN no encontrado");
         }
       }, 150);
     }

@@ -10,7 +10,7 @@ import type { View } from "./types";
 
 function AppShell() {
   const [view, setView] = useState<View>("clock");
-  const { setPass } = useAdminSession();
+  const { setPass, setUsingDefaultPassword } = useAdminSession();
 
   return (
     <>
@@ -21,8 +21,9 @@ function AppShell() {
         <AdminLoginView
           onCancel={() => setView("clock")}
           onForgot={() => setView("admin-recover")}
-          onLoggedIn={(password) => {
+          onLoggedIn={(password, usingDefaultPassword) => {
             setPass(password);
+            setUsingDefaultPassword(usingDefaultPassword);
             setView("admin");
           }}
         />
