@@ -41,6 +41,13 @@ def period_range(period, anchor_date_str):
             else:
                 end = anchor.replace(month=anchor.month + 1, day=1) - timedelta(days=1)
         return start, end
+    if period == "mes":
+        start = anchor.replace(day=1)
+        if anchor.month == 12:
+            end = anchor.replace(year=anchor.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            end = anchor.replace(month=anchor.month + 1, day=1) - timedelta(days=1)
+        return start, end
     return anchor, anchor
 
 
