@@ -212,15 +212,59 @@ certbot --nginx -d checador.staging.valeexpress.mx
 
 ## Dos cosas que cambian de comportamiento en staging (no son fallos)
 
-**El código QR ya no necesita que alguien escriba la IP a mano.** `QrTab.tsx` usa
-`window.location.origin` cuando no está en localhost, así que el QR apuntará solo a
-`https://checador.staging.valeexpress.mx`. El campo manual de IP solo aparece en localhost.
+**El código QR ya no necesita que alguien escriba la IP a mano.** Verificado en un navegador
+real, abriendo el panel por la IP de red (`http://192.168.100.13`) en vez de localhost:
 
-**La cámara en vivo empieza a funcionar.** `getUserMedia` exige contexto seguro. En la LAN
-de la oficina (`http://192.168.x.x`) el navegador la bloquea y el código cae al respaldo de
-`<input capture>`, que abre la cámara nativa. Con HTTPS en staging se activará la captura en
-vivo. Ambos caminos ya están implementados, así que no hay nada que tocar; conviene saberlo
-porque la pantalla se verá distinta.
+```
+hostname          : 192.168.100.13
+texto en pantalla : "Este es el enlace que deben escanear los empleados"
+                    "http://192.168.100.13"
+hayCampoIPManual  : false
+```
+
+El QR toma `window.location.origin`, así que en staging apuntará solo a
+`https://checador.staging.valeexpress.mx` y el campo manual de IP no aparece.
+
+**La cámara en vivo empieza a funcionar.** `getUserMedia` exige contexto seguro. Medido en
+ese mismo navegador sobre HTTP plano: `isSecureContext: false` y
+`navigator.mediaDevices: undefined`, así que el código cae al respaldo de `<input capture>`,
+que abre la cámara nativa del celular. Con HTTPS en staging el navegador sí expondrá
+`mediaDevices` y se activará la captura en vivo. Ambos caminos ya están implementados; no
+hay nada que tocar, pero conviene saberlo porque la pantalla se verá distinta.
+
+---
+
+## Verificación del despliegue en sí
+
+No basta con que el compose sea correcto: el bloque de nginx y el script también se
+ejecutaron, porque un archivo que solo se ha leído no está probado.
+
+**El bloque de nginx enruta bien.** Se levantó un nginx con esta configuración exacta,
+apuntando al stack real, y se pidió cada ruta con el `Host` del dominio de staging:
+
+| Petición | Resultado |
+|---|---|
+| `nginx -t` | sintaxis OK (probado en contenedor aislado, sin tocar el nginx del VPS) |
+| `GET /` | 200, sirve la SPA |
+| `GET /api/today` | 200, `{"done":{}}` (llega al backend) |
+| `GET /docs` | 200 pero es la SPA, **cero coincidencias de "swagger"** |
+
+**La IP real del celular sobrevive los dos proxies.** Es lo que evita que la detección de
+dispositivo compartido acuse a gente honesta. Marcando a través de la cadena completa con
+`X-Forwarded-For: 192.168.77.42`, la base guardó `192.168.77.42` y no la IP del contenedor.
+Con dos empleados desde IPs distintas: 2 IPs distintas guardadas y **0 alertas** de
+dispositivo compartido.
+
+**El script de despliegue se ejecutó de verdad, tres veces:**
+
+1. Sin `.env.staging` en el servidor: aborta antes de sincronizar nada, con las
+   instrucciones para crearlo. Es a propósito, porque fallar a mitad dejaría el código
+   nuevo con los contenedores viejos.
+2. Despliegue completo: 20 segundos, `backend OK` / `frontend OK`, exit 0.
+3. Segunda corrida seguida (idempotencia): se creó un empleado entre una corrida y otra, y
+   **seguía ahí después**. No recrea volúmenes ni pierde datos.
+
+Todo lo de estas pruebas se eliminó del servidor al terminar.
 
 ---
 
