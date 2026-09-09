@@ -14,9 +14,15 @@ Todo lo marcado como "verificado" trae el comando y la salida real que lo demues
 ## Veredicto
 
 El código está **bien escrito y bien organizado** (módulos chicos, nombres claros,
-comentarios en español que explican el porqué). El problema no es el estilo: es que
-**la seguridad del checador es aparente, no real**, y hay un bug de zona horaria que
-corrompe los datos de nómina hoy mismo.
+comentarios en español que explican el porqué). El problema no es el estilo, son dos cosas:
+
+1. **El reporte de nómina no sirve hoy.** Por un bug de zona horaria, toda jornada que
+   termine después de las 17:00 se contabiliza como **0 horas trabajadas** y genera una
+   falta falsa. Verificado contra el sistema: una jornada real de 9.5 h se paga como 0 h.
+2. **La seguridad del checador es aparente, no real.** Cualquier empleado puede marcar por
+   otro sin conocer su PIN, verificado con una sola llamada HTTP.
+
+Reproducir el punto 1: `python3 scripts/prueba_bug_zona_horaria.py` con el stack levantado.
 
 | Dimensión | Estado |
 |---|---|
@@ -33,7 +39,8 @@ corrompe los datos de nómina hoy mismo.
 
 ### 1. Zona horaria: todas las horas están corridas 7 horas
 
-El contenedor corre en UTC y el código usa `datetime.now()` sin zona horaria (11 usos).
+El contenedor corre en UTC y el código usa `datetime.now()` sin zona horaria (12 usos, y
+cero menciones de `ZoneInfo`, `timezone` o `tzinfo` en todo el backend).
 Una entrada real de las **14:03 hora de México** se guarda y se reporta como **21:03**.
 
 Verificado:
@@ -50,20 +57,58 @@ $ curl -s "$B/api/admin/records?period=dia" -H 'X-Admin-Pass: 1234'
 "hours": 0.02,
 ```
 
-**754 minutos de retardo inventados** sobre un empleado con entrada esperada 08:30. Y el
-efecto no se queda en la hora: entre las 17:00 y las 23:59 hora local, `date(timestamp)`
-cae en el **día siguiente** en UTC, así que la salida de un empleado se registra en otra
-fecha que su entrada. Eso rompe el cálculo de horas trabajadas, el conteo de faltas y el
-Excel de nómina.
+**754 minutos de retardo inventados** sobre un empleado con entrada esperada 08:30.
+
+Pero el daño caro no es el retardo: entre las 17:00 y las 23:59 hora local, `date(timestamp)`
+cae en el **día siguiente** en UTC, y como `rows.py` agrupa por `(employee_id, date)`, la
+entrada y la salida de una misma jornada caen en **dos filas distintas**, cada una sin su
+pareja, cada una con 0 horas.
+
+Verificado inyectando en la base una jornada tal como la guarda el código con el bug
+(8 sep, 08:30 a 18:00 hora local = 9.5 h reales) y pidiendo el reporte de nómina:
+
+```
+A) CON EL BUG (timestamps en UTC naive):
+  2026-09-09  ent=--     sal=01:00  horas=0.0  sin_marca=False
+  2026-09-08  ent=15:30  sal=--     horas=0.0  sin_marca=True
+  TOTAL HORAS PAGADAS: 0.0
+
+B) CON TZ CORRECTA (timestamps en hora local):
+  2026-09-08  ent=08:30  sal=18:00  horas=9.5  sin_marca=False
+  TOTAL HORAS PAGADAS: 9.5
+
+VEREDICTO: el bug paga 0.0 h de una jornada de 9.5 h.
+```
+
+Es decir: **toda jornada que termine después de las 17:00 se paga como cero horas** y además
+genera una falta falsa. Con salida a las 18:00, eso es todos los días de todos los empleados.
 
 Archivos: `app/routers/public.py:78`, `app/routers/records.py:61`, `app/alerts.py:24`,
 `app/reports/rows.py:31`, `app/reports/absences.py:15`, `app/reports/calendar.py:12`,
 `app/backup.py:16`, `app/main.py`.
 
-**Arreglo:** `TZ=America/Mexico_City` en el servicio backend de `docker-compose.yml` como
-parche inmediato, y migrar a `datetime.now(ZoneInfo("America/Mexico_City"))` con columnas
-`TIMESTAMPTZ` como arreglo correcto. Ojo con los datos ya guardados: hay que decidir si se
-recorren 7 horas o se marcan como sospechosos.
+**Arreglo verificado.** La zona correcta es **`America/Mazatlan`**, no `America/Mexico_City`:
+la computadora donde corre el checador está en `America/Mazatlan` (MST, -0700), y CDMX está
+en CST (-0600), así que poner CDMX dejaría el reloj **una hora adelantado**. Confirmado:
+
+```
+$ timedatectl
+  Time zone: America/Mazatlan (MST, -0700)
+
+# con TZ: America/Mazatlan en el servicio backend
+host: 14:11:28 MST
+cont: 14:11:28 MST          <- coinciden
+
+$ curl -X POST $B/api/punch ...
+{"ok":true,"time":"14:11:29"}
+$ curl "$B/api/admin/records?period=dia"
+"entrada": "14:11",  "retardoMin": 341     <- correcto (08:30 a 14:11 = 341 min)
+```
+
+Parche inmediato: `TZ: America/Mazatlan` en el `environment:` del backend en
+`docker-compose.yml`. **Antes de aplicarlo hay que confirmar en qué ciudad opera la oficina**,
+porque si es CDMX la respuesta es otra y el reloj del host es el que está mal.
+Arreglo de fondo: `datetime.now(ZoneInfo(...))` con columnas `TIMESTAMPTZ`.
 
 ### 2. Cualquiera puede marcar por cualquiera (sin PIN)
 
@@ -281,8 +326,22 @@ contenedor de nginx, idéntica para todos los empleados. Verificado en la base:
 ```
 
 Nginx sí envía `X-Forwarded-For` (`nginx.conf:12`), pero el backend no lo lee. Resultado: en
-el uso real, **todos los empleados comparten IP**, así que `check_device_alert` o no dispara
-nunca o dispara con todos. En cualquier caso, el dato en el que se apoya es basura.
+el uso real, **todos los empleados comparten IP**. Verificado provocando el falso positivo:
+dos empleados distintos, marcando desde dos celulares distintos (con `X-Forwarded-For`
+diferente), a través de nginx:
+
+```
+ Ana_Torres    | 172.20.0.4        <- misma IP
+ Beto_Ruiz     | 172.20.0.4        <- misma IP (la de nginx)
+
+$ curl -s $F/api/admin/device-alerts -H 'X-Admin-Pass: 1234'
+  1 alerta(s)
+   FALSO POSITIVO: Ana_Torres vs Beto_Ruiz ip 172.20.0.4
+```
+
+No es que la función "no sirva": **acusa de fraude a empleados honestos**. En una oficina
+donde varios llegan a la misma hora, genera una alerta por cada par. El arreglo es leer
+`X-Forwarded-For` (nginx ya lo envía) y configurar `ProxyHeadersMiddleware` de uvicorn.
 
 ### 18. Detalles de infraestructura
 
@@ -332,7 +391,7 @@ en el de arranque).
 
 | # | Acción | Esfuerzo |
 |---|---|---|
-| 1 | `TZ=America/Mexico_City` en el backend, y decidir qué hacer con los datos ya corridos | 10 min + decisión |
+| 1 | `TZ: America/Mazatlan` en el backend (confirmar antes la ciudad de la oficina), y decidir qué hacer con los datos ya corridos | 10 min + decisión |
 | 2 | Exigir el PIN dentro de `POST /api/punch` y verificarlo en el servidor | 1 h |
 | 3 | Reactivar `rate_limit` en `/verify-pin`, `/admin/login` y `/admin/recover` | 30 min |
 | 4 | Validación real en los schemas Pydantic (`date`, `time`, `Literal`) para matar los 500 | 1 h |
