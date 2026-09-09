@@ -33,6 +33,41 @@ Reproducir el punto 1: `python3 scripts/prueba_bug_zona_horaria.py` con el stack
 | Pruebas y CI | Inexistentes |
 | Operación (backups, arranque) | Aceptable para el alcance |
 
+
+---
+
+## Estado: corregido el 2026-09-09 (commit `1a9f926`)
+
+Los hallazgos P0 y los P1 mas graves quedaron arreglados y verificados. Lo que
+sigue en este documento es el diagnostico original, que se conserva como
+referencia de por que se hizo cada cambio.
+
+| # | Hallazgo | Estado |
+|---|---|---|
+| 1 | Zona horaria | Corregido: `app/clock.py` + `TZ`/`OFFICE_TZ` + migracion de datos |
+| 2 | Marcar por otro sin PIN | Corregido: el empleado se deriva del PIN en el servidor |
+| 3 | PIN sin limite de intentos | Corregido: rate limit en `verify-pin` y `punch` |
+| 4 | `rate_limit.py` sin usar | Corregido: activo en `verify-pin`, `login` y `recover` |
+| 5 | 500 en `manual-edit` | Corregido: validacion Pydantic real (`date`, `Literal`, patron HH:MM) |
+| 6 | Fotos huerfanas | Corregido: se borra la foto si el insert falla |
+| 7 | Subidas sin limite | Corregido: 8 MB en el backend, 10 MB en nginx |
+| 8 | Sin indices | Corregido: tres indices en `records` |
+| 9 | Sin UNIQUE por marca diaria | Corregido: indice unico sobre `(employee_id, type, date)` |
+| 11 | `/config` filtraba el codigo de recuperacion | Corregido: solo se muestra al generarlo |
+| 12 | Login devolvia 200 al fallar | Corregido: 401 |
+| 16 | El aviso de contrasena por defecto nunca salia | Corregido: se compara contra el hash |
+| 17 | Falsos positivos de dispositivo compartido | Corregido: `app/net.py` lee `X-Forwarded-For` |
+| 18 | `npm install`, sin cabeceras en nginx | Corregido: `npm ci`, cabeceras y gzip |
+| 20 | `api<T = any>` y errores de red sin manejar | Corregido: el cliente ya no cuelga la UI |
+
+Verificacion: `python3 scripts/verifica_arreglos.py` (22 de 22 desde base limpia).
+
+**Sigue abierto:** el PIN se guarda en texto plano (#3, parte de almacenamiento),
+sesion admin sin JWT con bcrypt en cada request (#10), N+1 en los reportes (#8),
+migraciones sin Alembic (#14), sin tests ni CI (#15), contrasena por defecto
+`1234` (#16), `/docs` publico (#18), retencion de fotos (#7), `on_event`
+deprecado y `except Exception: pass` (#20).
+
 ---
 
 ## P0 — Rompe los datos hoy
