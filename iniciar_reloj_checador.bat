@@ -7,7 +7,11 @@ docker info >nul 2>&1
 if not errorlevel 1 goto docker_ready
 
 echo Docker Desktop no esta corriendo, iniciandolo...
-start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+if exist "%LOCALAPPDATA%\Programs\DockerDesktop\Docker Desktop.exe" (
+    start "" "%LOCALAPPDATA%\Programs\DockerDesktop\Docker Desktop.exe"
+) else (
+    start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+)
 
 echo Esperando a que Docker este listo (puede tardar 1-2 minutos)...
 set /a tries=0
