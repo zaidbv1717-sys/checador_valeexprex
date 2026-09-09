@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, String
+from sqlalchemy import Column, DateTime, ForeignKey, Index, String
 
 from ..database import Base
 
@@ -13,6 +13,14 @@ class Record(Base):
     timestamp = Column(DateTime)
     source_ip = Column(String, nullable=True)
     photo_path = Column(String, nullable=True)
+
+    # Sin estos indices cada reporte hacia un scan completo de la tabla, y los
+    # tres filtros de todas las consultas son justo estas columnas.
+    __table_args__ = (
+        Index("ix_records_employee_timestamp", "employee_id", "timestamp"),
+        Index("ix_records_timestamp", "timestamp"),
+        Index("ix_records_employee_type_timestamp", "employee_id", "type", "timestamp"),
+    )
 
 
 class DayNote(Base):

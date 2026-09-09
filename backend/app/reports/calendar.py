@@ -4,12 +4,12 @@ from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from .. import models
+from .. import clock, models
 
 
 def compute_calendar(db: Session, employee_id, year, month):
     days_in_month = calendar.monthrange(year, month)[1]
-    today = datetime.now().date()
+    today = clock.today()
     days = []
     for day_num in range(1, days_in_month + 1):
         d = datetime(year, month, day_num).date()

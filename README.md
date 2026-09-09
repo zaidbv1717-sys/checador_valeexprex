@@ -104,9 +104,44 @@ pasan como `environment:` en `docker-compose.yml`):
 |---|---|---|
 | `DATABASE_URL` | Cadena de conexión a PostgreSQL | `postgresql://reloj:reloj@localhost:5432/reloj_checador` |
 | `PORT` | Puerto del backend | `8000` |
+| `OFFICE_TZ` | Zona horaria de la oficina. **Mazatlán es MST (-0700) y no comparte hora con CDMX (-0600)** | `America/Mazatlan` |
 | `MAX_BACKUPS` | Respaldos diarios a conservar | `30` |
+| `MAX_PHOTO_BYTES` | Tamaño máximo de foto aceptado | `8388608` (8 MB) |
 | `DEVICE_ALERT_WINDOW_MIN` | Ventana (minutos) para detectar dispositivo compartido | `5` |
 | `DEFAULT_ADMIN_PASSWORD` | Contraseña de admin sembrada la primera vez que arranca | `1234` |
+
+### Zona horaria
+
+El contenedor debe correr en la hora de la oficina, no en UTC. `docker-compose.yml`
+define `TZ` y `OFFICE_TZ` en el servicio backend, y todo el código pide la hora a
+`backend/app/clock.py` en vez de a `datetime.now()`.
+
+Esto no es cosmético: con el contenedor en UTC, una jornada que termina después de
+las 17:00 cruza de día y el reporte la parte en dos filas sin pareja, así que se
+contabiliza como **cero horas trabajadas más una falta falsa**. Si el checador se
+instala en otra plaza, cambia `OFFICE_TZ` (y `TZ`) y reinicia.
+
+Para corregir marcas guardadas antes de este arreglo:
+
+```bash
+# 1. Ver qué haría, sin tocar nada
+docker exec reloj_checador_backend python -m app.migrations.fix_utc_timestamps --dry-run
+# 2. Aplicar (respalda con pg_dump antes de escribir; correrla dos veces no duplica el ajuste)
+docker exec reloj_checador_backend python -m app.migrations.fix_utc_timestamps --apply
+```
+
+## Verificación
+
+`scripts/verifica_arreglos.py` reproduce cada problema corregido (suplantación de
+marcas, fuerza bruta de PIN, errores 500, límite de subida, IP real detrás del
+proxy) y comprueba el comportamiento nuevo. Con el stack levantado:
+
+```bash
+python3 scripts/verifica_arreglos.py
+```
+
+Está escrito para los puertos de desarrollo (18000/18080); ajusta `B` y `F` si
+usas los de producción.
 
 El respaldo automático corre una vez al día (y también al arrancar) usando `pg_dump`
 contra `DATABASE_URL` directamente, volcando a `data/backups/`. Dentro del contenedor del

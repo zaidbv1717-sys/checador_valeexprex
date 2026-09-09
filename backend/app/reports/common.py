@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 
+from .. import clock
+
 CATEGORY_LABELS = {
     "practicante": "Practicante",
     "trabajador": "Trabajador",
@@ -25,7 +27,7 @@ def period_range(period, anchor_date_str):
     if anchor_date_str:
         anchor = datetime.strptime(anchor_date_str, "%Y-%m-%d").date()
     else:
-        anchor = datetime.now().date()
+        anchor = clock.today()
     if period == "semana":
         start = anchor - timedelta(days=anchor.weekday())
         end = start + timedelta(days=6)

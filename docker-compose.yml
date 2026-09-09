@@ -22,6 +22,11 @@ services:
     container_name: reloj_checador_backend
     restart: unless-stopped
     environment:
+      # La oficina esta en Mazatlan (MST, -0700). Sin esto el contenedor corre en
+      # UTC y las jornadas que terminan despues de las 17:00 cruzan de dia, lo que
+      # las contabiliza como cero horas trabajadas. Ver backend/app/clock.py.
+      TZ: ${TZ:-America/Mazatlan}
+      OFFICE_TZ: ${OFFICE_TZ:-America/Mazatlan}
       DATABASE_URL: postgresql://${POSTGRES_USER:-reloj}:${POSTGRES_PASSWORD:-reloj}@postgres:5432/${POSTGRES_DB:-reloj_checador}
       DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-1234}
       MAX_BACKUPS: ${MAX_BACKUPS:-30}

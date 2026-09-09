@@ -1,9 +1,9 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from .. import models
+from .. import clock, models
 from .common import JUSTIFICATION_TYPE_LABELS, period_range
 
 
@@ -12,7 +12,7 @@ def compute_absences(db: Session, period, anchor_date_str, emp_filter):
     if emp_filter and emp_filter != "all":
         employees = [e for e in employees if e.name == emp_filter]
     start, end = period_range(period, anchor_date_str)
-    today = datetime.now().date()
+    today = clock.today()
     effective_end = min(end, today - timedelta(days=1))
 
     absences = []

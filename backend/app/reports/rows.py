@@ -2,7 +2,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from .. import crud, models
+from .. import clock, crud, models
 from .common import fmt_hm, period_range
 
 
@@ -28,7 +28,7 @@ def compute_report_rows(db: Session, period, anchor_date_str, emp_filter):
             }
         by_key[key][r.type] = r
 
-    today = datetime.now().date()
+    today = clock.today()
     start, end = period_range(period, anchor_date_str)
 
     rows = []

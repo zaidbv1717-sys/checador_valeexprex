@@ -11,6 +11,10 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
   const [now, setNow] = useState(new Date());
   const [pin, setPin] = useState("");
   const [activeEmployee, setActiveEmployee] = useState<ActiveEmployee | null>(null);
+  // El PIN se conserva mientras dura la sesion del empleado porque el servidor lo
+  // vuelve a exigir en cada marca: es la unica prueba de identidad, y antes se
+  // confiaba en el employeeId que mandaba el navegador.
+  const [sessionPin, setSessionPin] = useState("");
   const [todayDone, setTodayDone] = useState<Record<string, string>>({});
   const [pendingType, setPendingType] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -19,6 +23,12 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
     const id = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(id);
   }, []);
+
+  function clearSession() {
+    setActiveEmployee(null);
+    setSessionPin("");
+    setTodayDone({});
+  }
 
   async function refreshToday(emp: ActiveEmployee) {
     const r = await api<{ done?: Record<string, string> }>("/api/today?employeeId=" + encodeURIComponent(emp.id));
@@ -38,6 +48,7 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
         setPin("");
         if (r.ok && r.employee) {
           setActiveEmployee(r.employee);
+          setSessionPin(next);
           await refreshToday(r.employee);
         } else {
           toast(r.error || "PIN no encontrado");
@@ -58,12 +69,11 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
     const type = pendingType;
     setPendingType(null);
     const emp = activeEmployee;
-    if (!emp || !type) return;
+    if (!emp || !type || !sessionPin) return;
 
     setSubmitting(true);
     const form = new FormData();
-    form.append("employeeId", emp.id);
-    form.append("employeeName", emp.name);
+    form.append("pin", sessionPin);
     form.append("type", type);
     form.append("photo", file);
     const r = await api<{ ok: boolean; time?: string; error?: string }>("/api/punch", {
@@ -72,12 +82,11 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
     });
     setSubmitting(false);
     if (r.ok) {
-      toast(TYPE_LABEL[type] + " registrada — " + r.time);
+      toast(TYPE_LABEL[type] + " registrada a las " + r.time);
     } else {
       toast(r.error || "No se pudo registrar");
     }
-    setActiveEmployee(null);
-    setTodayDone({});
+    clearSession();
   }
 
   function cancelCapture() {
@@ -140,7 +149,7 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
               </div>
             ))}
           </div>
-          <button className="back-link" onClick={() => { setActiveEmployee(null); setTodayDone({}); }}>
+          <button className="back-link" onClick={clearSession}>
             Cambiar de empleado
           </button>
         </>
@@ -156,7 +165,7 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
           <button className="stage-btn" disabled={submitting} onClick={() => requestPunch(nextStage)}>
             {submitting ? "Enviando…" : `Marcar ${TYPE_LABEL[nextStage]}`}
           </button>
-          <button className="back-link" onClick={() => { setActiveEmployee(null); setTodayDone({}); }}>
+          <button className="back-link" onClick={clearSession}>
             Cambiar de empleado
           </button>
         </>

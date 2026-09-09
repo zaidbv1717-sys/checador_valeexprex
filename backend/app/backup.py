@@ -1,8 +1,8 @@
 import os
 import subprocess
 import time
-from datetime import datetime
 
+from . import clock
 from .config import settings
 
 
@@ -13,7 +13,7 @@ def backup_now():
     omite el respaldo. Dentro del contenedor del backend `pg_dump` siempre está instalado
     (ver Dockerfile); fuera de Docker (venv local en Windows) puede no estarlo."""
     os.makedirs(settings.backup_dir, exist_ok=True)
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ts = clock.now().strftime("%Y%m%d_%H%M%S")
     dest = os.path.join(settings.backup_dir, f"attendance_{ts}.sql")
     try:
         subprocess.run(

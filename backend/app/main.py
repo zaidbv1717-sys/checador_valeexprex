@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-from . import crud, security
+from . import clock, crud, security
 from .backup import backup_loop, backup_now
 from .config import REPO_ROOT, settings
 from .database import Base, SessionLocal, engine
@@ -56,6 +56,14 @@ def on_startup():
         # Migración: employees/records creados antes de requerir foto no tienen esta columna.
         conn.execute(text("ALTER TABLE employees ADD COLUMN IF NOT EXISTS photo_path VARCHAR"))
         conn.execute(text("ALTER TABLE records ADD COLUMN IF NOT EXISTS photo_path VARCHAR"))
+        # Una sola marca de cada tipo por empleado y dia. Antes esto vivia solo en
+        # codigo (consultar-luego-insertar), que no protege contra dos peticiones
+        # simultaneas. SQLAlchemy no puede declarar un indice sobre date(timestamp),
+        # asi que va en crudo.
+        conn.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_records_employee_type_day "
+            "ON records (employee_id, type, (timestamp::date))"
+        ))
     db = SessionLocal()
     try:
         cfg = crud.get_config(db)
@@ -66,6 +74,9 @@ def on_startup():
         if "recovery_code" not in cfg:
             crud.set_config(db, {"recovery_code": crud.gen_recovery_code()})
         cfg = crud.get_config(db)
+        using_default_password = security.verify_password(
+            settings.default_admin_password, cfg.get("password", "")
+        )
     finally:
         db.close()
 
@@ -78,8 +89,12 @@ def on_startup():
     print(f" En esta computadora:   http://localhost:{settings.port}")
     print(f" Para el QR (celulares): http://{ip}:{settings.port}")
     print(" (los celulares deben estar en la misma red WiFi)")
-    print(f' Código de recuperación de contraseña: {cfg.get("recovery_code", "")}')
-    print(" (guárdalo en un lugar seguro — sirve si olvidas la contraseña de admin)")
+    print(f" Zona horaria de la oficina: {settings.office_tz} (hora local: {clock.now():%H:%M})")
+    # El codigo de recuperacion ya no se imprime: `docker logs` es legible por
+    # cualquiera con acceso a la maquina, y ese codigo restablece la contrasena.
+    # Se consulta desde el panel de admin, en Config.
+    if using_default_password:
+        print(" AVISO: la contraseña de administrador es la de fábrica. Cámbiala en el panel.")
     print(f" Respaldo automático diario en: data/backups/ (se guardan los últimos {settings.max_backups})")
     print("=" * 56)
 

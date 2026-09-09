@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, time
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -12,8 +12,6 @@ from ..database import get_db
 from ..deps import require_admin
 
 router = APIRouter(prefix="/admin", tags=["records"], dependencies=[Depends(require_admin)])
-
-TYPES = ("entrada", "comida_salida", "comida_entrada", "salida")
 
 
 @router.get("/records/{record_id}/photo")
@@ -54,21 +52,28 @@ def export_xlsx(period: str = "quincena", date: str = "", emp: str = "all", db: 
 
 @router.post("/manual-edit")
 def manual_edit(body: schemas.ManualEditRequest, db: Session = Depends(get_db)):
+    # El empleado debe existir: sin esto el insert violaba la llave foranea y
+    # respondia 500 en vez de un error entendible.
+    emp = db.get(models.Employee, body.employeeId)
+    if not emp:
+        return JSONResponse({"ok": False, "error": "Empleado no encontrado"}, status_code=404)
+
+    date_str = body.dateStr.isoformat()
     for ptype, hm in (body.edits or {}).items():
-        if not hm or ptype not in TYPES:
+        if not hm:
             continue
         h, m = map(int, hm.split(":"))
-        ts = datetime.strptime(body.dateStr, "%Y-%m-%d").replace(hour=h, minute=m)
+        ts = datetime.combine(body.dateStr, time(hour=h, minute=m))
         existing = db.query(models.Record).filter(
             models.Record.employee_id == body.employeeId,
             models.Record.type == ptype,
-            func.date(models.Record.timestamp) == ts.date(),
+            func.date(models.Record.timestamp) == body.dateStr,
         ).first()
         if existing:
             existing.timestamp = ts
         else:
             db.add(models.Record(
-                id=crud.uid(), employee_id=body.employeeId, employee_name=body.employeeName,
+                id=crud.uid(), employee_id=body.employeeId, employee_name=emp.name,
                 type=ptype, timestamp=ts, source_ip=None,
             ))
 
@@ -76,13 +81,13 @@ def manual_edit(body: schemas.ManualEditRequest, db: Session = Depends(get_db)):
         note_val = (body.note or "").strip()
         day_note = db.query(models.DayNote).filter(
             models.DayNote.employee_id == body.employeeId,
-            models.DayNote.date == body.dateStr,
+            models.DayNote.date == date_str,
         ).first()
         if note_val:
             if day_note:
                 day_note.note = note_val
             else:
-                db.add(models.DayNote(employee_id=body.employeeId, date=body.dateStr, note=note_val))
+                db.add(models.DayNote(employee_id=body.employeeId, date=date_str, note=note_val))
         elif day_note:
             db.delete(day_note)
 
