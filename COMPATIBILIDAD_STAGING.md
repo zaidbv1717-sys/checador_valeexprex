@@ -7,6 +7,28 @@
 
 ---
 
+## Estado: DESPLEGADO Y FUNCIONANDO
+
+**https://checador.staging.valeexpress.mx** — en línea desde el 2026-09-09.
+
+| Elemento | Estado |
+|---|---|
+| DNS `checador.staging.valeexpress.mx` | Creado, A → 45.82.73.42, DNS only |
+| Certificado TLS | Let's Encrypt, vence 2026-12-08, renovación automática |
+| HTTP → HTTPS | 301 permanente |
+| Contenedores | 3 en marcha, ~100 MB de RAM en total |
+| Contraseñas | Aleatorias en `/root/checador-staging/.env.staging` (chmod 600) |
+| `/docs` | Cerrado |
+| Respaldo automático | Corriendo (`attendance_*.sql`) |
+| ValeExpress | Intacto, 7 contenedores |
+
+La contraseña del panel está en el servidor:
+`ssh valexpress-staging 'grep DEFAULT_ADMIN_PASSWORD /root/checador-staging/.env.staging'`
+
+Volver a desplegar tras un cambio de código: `./scripts/deploy_staging.sh`.
+
+---
+
 ## Veredicto
 
 **Es compatible, pero el `docker-compose.yml` que hay en el repo NO arranca en ese
@@ -31,8 +53,8 @@ nginx en el host).
 | Exposición a internet | **Bloqueante**, resuelto |
 | Zona horaria | **Bloqueante**, resuelto |
 | Persistencia de datos | Frágil, resuelto |
-| DNS y TLS | **Falta crear el subdominio** (única tarea manual) |
-| Cámara desde el celular | Mejora con HTTPS, no bloquea |
+| DNS y TLS | Creado y certificado emitido |
+| Cámara desde el celular | Activada por HTTPS |
 
 ---
 
@@ -162,19 +184,38 @@ Sobra holgura.
 
 ---
 
-## Lo único que falta y requiere una decisión humana
+## DNS y TLS: cómo quedó
 
-**El subdominio `checador.staging.valeexpress.mx` no existe.** Comprobado: `api.staging`
-resuelve a 45.82.73.42, `checador.staging` no resuelve a nada.
+El registro se creó por la API de Cloudflare, copiando el patrón exacto del hermano
+`api.staging` que ya funcionaba (A → 45.82.73.42, `proxied: false`, TTL 300):
 
-Hay que crear el registro A en Cloudflare (zona `valeexpress.mx`) apuntando a
-**45.82.73.42**, en modo **DNS only, no proxied**. La razón está escrita en el propio nginx
-del servidor: el Universal SSL gratuito de Cloudflare no cubre un tercer nivel como
-`*.staging`, por eso ese entorno usa certbot en el host.
+```
+id      : a6ab30523a57c6bdcabd0b574077cd53
+type    : A
+name    : checador.staging.valeexpress.mx
+content : 45.82.73.42
+proxied : false      <- a propósito, ver abajo
+ttl     : 300
+```
 
-No se creó el registro porque toca el DNS de un dominio en producción, y eso lo decide
-quien opera la zona. Con el registro creado, el resto son los comandos de la sección
-siguiente.
+**`proxied: false` no es un descuido.** El Universal SSL gratuito de Cloudflare no cubre un
+tercer nivel como `*.staging`, así que con el proxy activado Cloudflare presentaría un
+certificado que no cubre este host y el navegador mostraría error. Por eso todo el entorno
+de staging es "DNS only" y el TLS lo pone certbot en el VPS. Es la misma razón que está
+escrita en el nginx de ValeExpress.
+
+El certificado se emitió con `certbot --nginx --redirect`, que además agregó el bloque
+`:443` y el redirect 301 desde HTTP. Certbot dejó programada la renovación automática.
+
+Verificado desde internet, sin `-k`:
+
+```
+subject   = CN=checador.staging.valeexpress.mx
+issuer    = Let's Encrypt
+notAfter  = Dec  8 22:12:38 2026 GMT
+http://   -> 301 a https://
+https://  -> 200
+```
 
 ---
 
@@ -213,24 +254,28 @@ certbot --nginx -d checador.staging.valeexpress.mx
 ## Dos cosas que cambian de comportamiento en staging (no son fallos)
 
 **El código QR ya no necesita que alguien escriba la IP a mano.** Verificado en un navegador
-real, abriendo el panel por la IP de red (`http://192.168.100.13`) en vez de localhost:
+real contra el staging ya desplegado:
 
 ```
-hostname          : 192.168.100.13
-texto en pantalla : "Este es el enlace que deben escanear los empleados"
-                    "http://192.168.100.13"
-hayCampoIPManual  : false
+hostname                 : checador.staging.valeexpress.mx
+esLocalhost              : false
+valorQueCodificaraElQR   : https://checador.staging.valeexpress.mx
+mostrariaCampoIPManual   : false
 ```
 
-El QR toma `window.location.origin`, así que en staging apuntará solo a
-`https://checador.staging.valeexpress.mx` y el campo manual de IP no aparece.
+El QR toma `window.location.origin`, así que el empleado que lo escanee llega directo al
+dominio con HTTPS. El campo manual de IP solo aparece en localhost.
 
-**La cámara en vivo empieza a funcionar.** `getUserMedia` exige contexto seguro. Medido en
-ese mismo navegador sobre HTTP plano: `isSecureContext: false` y
-`navigator.mediaDevices: undefined`, así que el código cae al respaldo de `<input capture>`,
-que abre la cámara nativa del celular. Con HTTPS en staging el navegador sí expondrá
-`mediaDevices` y se activará la captura en vivo. Ambos caminos ya están implementados; no
-hay nada que tocar, pero conviene saberlo porque la pantalla se verá distinta.
+**La cámara en vivo ya está activa.** `getUserMedia` exige contexto seguro. Medido en los
+dos entornos, con el mismo navegador:
+
+| Entorno | isSecureContext | mediaDevices | Camino que toma |
+|---|---|---|---|
+| LAN oficina, `http://192.168.x.x` | false | undefined | respaldo `<input capture>`, cámara nativa |
+| Staging, `https://checador.staging...` | **true** | **disponible** | captura en vivo |
+
+Ambos caminos ya estaban implementados, así que no hubo nada que tocar; conviene saberlo
+porque la pantalla se ve distinta en staging que en la oficina.
 
 ---
 
