@@ -4,20 +4,63 @@ Cada prueba reproduce el ataque o el error original y exige el comportamiento
 nuevo. Correr con el stack levantado:
 
     python3 scripts/verifica_arreglos.py
+
+Los valores por defecto son los del stack de desarrollo (puertos 18000/18080,
+contenedores reloj_checador_*, contrasena de fabrica). Para correrlo contra otro
+entorno, por ejemplo el VPS de staging, todo se ajusta por variables de entorno
+sin tocar este archivo:
+
+    CHECADOR_BACKEND=http://127.0.0.1:18001 \
+    CHECADOR_FRONT=http://127.0.0.1:18085 \
+    CHECADOR_ADMIN_PASS='...' \
+    CHECADOR_PG_CONTAINER=checador_staging_postgres \
+    CHECADOR_BACKEND_CONTAINER=checador_staging_backend \
+    CHECADOR_PG_USER=reloj CHECADOR_PG_DB=reloj_checador \
+    python3 scripts/verifica_arreglos.py
+
+Estaba clavado a los nombres de la oficina, asi que en staging fallaba entero
+aunque el sistema estuviera bien: `docker exec reloj_checador_postgres` no
+existe ahi. Un verificador que no se puede apuntar al entorno real no verifica
+el entorno real.
 """
 
 import json
+import os
 import subprocess
 import sys
 import time
 
-B = "http://localhost:18000"     # backend directo
-F = "http://localhost:18080"     # a traves de nginx
-ADMIN = ["-H", "X-Admin-Pass: 1234"]
-FOTO = "reloj_checador.ico"
+B = os.environ.get("CHECADOR_BACKEND", "http://localhost:18000")   # backend directo
+F = os.environ.get("CHECADOR_FRONT", "http://localhost:18080")     # a traves de nginx
+ADMIN_PASS = os.environ.get("CHECADOR_ADMIN_PASS", "1234")
+ADMIN = ["-H", f"X-Admin-Pass: {ADMIN_PASS}"]
+PG_CONTAINER = os.environ.get("CHECADOR_PG_CONTAINER", "reloj_checador_postgres")
+BACKEND_CONTAINER = os.environ.get("CHECADOR_BACKEND_CONTAINER", "reloj_checador_backend")
+PG_USER = os.environ.get("CHECADOR_PG_USER", "reloj")
+PG_DB = os.environ.get("CHECADOR_PG_DB", "reloj_checador")
+# La contrasena de fabrica se sigue comprobando, pero solo tiene sentido donde
+# de verdad se uso: en staging el compose exige una propia y ese aviso no aplica.
+ESPERA_PASS_DE_FABRICA = ADMIN_PASS == "1234"
+FOTO = os.environ.get("CHECADOR_FOTO", "reloj_checador.ico")
 
 fallos = []
 pasadas = []
+
+# IPs SIMULADAS UNICAS POR CORRIDA.
+#
+# El rate limit vive en memoria del proceso y dura 5 minutos (rate_limit.py:
+# WINDOW_SECONDS=300). Con IPs fijas, la segunda corrida dentro de esa ventana
+# arranca contra un cubo que la primera dejo lleno: el primer login devuelve 429
+# en vez de 401 y la prueba "login fallido devuelve 401" falla aunque el sistema
+# este perfecto. Es un falso negativo del verificador, y de los peores, porque
+# aparece justo cuando uno repite la prueba por desconfianza.
+#
+# Derivar el ultimo octeto del PID da una IP distinta en cada corrida sin
+# necesidad de esperar los 5 minutos.
+_OCTETO = os.getpid() % 250 + 2
+IP_PIN = f"10.1.{_OCTETO}.1"
+IP_LOGIN = f"10.1.{_OCTETO}.2"
+IP_LIMPIA = f"10.1.{_OCTETO}.9"
 
 
 def curl(*args, status=False):
@@ -47,8 +90,8 @@ def check(nombre, condicion, detalle=""):
 
 def psql(sql):
     return subprocess.run(
-        ["docker", "exec", "reloj_checador_postgres", "psql", "-U", "reloj",
-         "-d", "reloj_checador", "-t", "-c", sql],
+        ["docker", "exec", PG_CONTAINER, "psql", "-U", PG_USER,
+         "-d", PG_DB, "-t", "-c", sql],
         capture_output=True, text=True,
     ).stdout.strip()
 
@@ -64,10 +107,19 @@ emp_id = emp["id"]
 print("P0-1  Zona horaria")
 hora_host = subprocess.run(["date", "+%H"], capture_output=True, text=True).stdout.strip()
 hora_cont = subprocess.run(
-    ["docker", "exec", "reloj_checador_backend", "date", "+%H"],
+    ["docker", "exec", BACKEND_CONTAINER, "date", "+%H"],
     capture_output=True, text=True).stdout.strip()
-check("host y contenedor comparten hora", hora_host == hora_cont,
-      f"host={hora_host} cont={hora_cont}")
+# En la PC de la oficina el host ya corre en hora local y comparar contra el
+# contenedor basta. En un servidor en UTC (el VPS de staging) esa comparacion
+# FALLA aunque todo este bien, porque el contenedor debe ir 7 horas atras del
+# host a proposito. Lo que importa en ambos casos es que el contenedor este en
+# la hora de la OFICINA, asi que se compara contra OFFICE_TZ, no contra el host.
+hora_oficina = subprocess.run(
+    ["docker", "exec", BACKEND_CONTAINER, "python", "-c",
+     "from app import clock; print(f'{clock.now():%H}')"],
+    capture_output=True, text=True).stdout.strip()
+check("el contenedor corre en la hora de la oficina", hora_cont == hora_oficina,
+      f"date={hora_cont} clock.now()={hora_oficina}")
 
 print("\nP0-2  Suplantacion: marcar por otro sin su PIN")
 r = jcurl("-X", "POST", f"{B}/api/punch",
@@ -82,17 +134,18 @@ r = jcurl("-X", "POST", f"{B}/api/punch", "-F", "pin=1111",
 check("punch con PIN valido es aceptado", r.get("ok") is True, str(r)[:90])
 check("quedo registrado", psql("SELECT count(*) FROM records;") == "1")
 hora_bd = psql("SELECT to_char(timestamp,'HH24') FROM records LIMIT 1;").strip()
-check("la hora guardada es local", hora_bd == hora_host, f"bd={hora_bd} host={hora_host}")
+check("la hora guardada es local", hora_bd == hora_oficina,
+      f"bd={hora_bd} oficina={hora_oficina} host={hora_host}(UTC en el VPS)")
 
 print("\nP0-4  Rate limiting")
 # Cada bloque usa su propia IP simulada: el limite es por IP, asi que reutilizar
 # una ya bloqueada por el bloque anterior daria un 429 enganoso.
-codigos = [curl("-X", "POST", f"{F}/api/verify-pin", "-H", "X-Forwarded-For: 10.1.0.1",
+codigos = [curl("-X", "POST", f"{F}/api/verify-pin", "-H", f"X-Forwarded-For: {IP_PIN}",
                 "-H", "Content-Type: application/json",
                 "-d", f'{{"pin":"9{i:03d}"}}', status=True) for i in range(8)]
 check("verify-pin bloquea tras varios fallos", "429" in codigos, f"codigos={codigos}")
 
-codigos = [curl("-X", "POST", f"{F}/api/admin/login", "-H", "X-Forwarded-For: 10.1.0.2",
+codigos = [curl("-X", "POST", f"{F}/api/admin/login", "-H", f"X-Forwarded-For: {IP_LOGIN}",
                 "-H", "Content-Type: application/json",
                 "-d", f'{{"password":"malo{i}"}}', status=True) for i in range(8)]
 check("login fallido devuelve 401 (no 200)", codigos[0] == "401", f"primero={codigos[0]}")
@@ -121,7 +174,7 @@ print("\nP1  Indices y unicidad")
 idx = psql("SELECT count(*) FROM pg_indexes WHERE tablename='records';")
 check("records tiene indices", int(idx) >= 4, f"{idx} indices")
 dup = subprocess.run(
-    ["docker", "exec", "reloj_checador_postgres", "psql", "-U", "reloj", "-d", "reloj_checador",
+    ["docker", "exec", PG_CONTAINER, "psql", "-U", PG_USER, "-d", PG_DB,
      "-c", f"INSERT INTO records (id,employee_id,employee_name,type,timestamp) "
            f"VALUES ('dup1','{emp_id}','Ana Torres','entrada',now());"],
     capture_output=True, text=True)
@@ -131,18 +184,29 @@ check("la BD rechaza dos marcas del mismo tipo el mismo dia",
 print("\nSeguridad de datos")
 cfg = jcurl(f"{B}/api/admin/config", *ADMIN)
 check("config ya no expone el codigo de recuperacion", "recoveryCode" not in cfg, str(cfg)[:90])
-logs = subprocess.run(["docker", "logs", "reloj_checador_backend"],
+logs = subprocess.run(["docker", "logs", BACKEND_CONTAINER],
                       capture_output=True, text=True)
 check("los logs no imprimen el codigo de recuperacion",
       "recuperación de contraseña" not in (logs.stdout + logs.stderr))
 # Desde otra IP, para no chocar con el bloqueo que dejaron las pruebas de fuerza
 # bruta de arriba (el rate limit es por IP, y eso es justo lo que se quiere).
-login = jcurl("-X", "POST", f"{F}/api/admin/login", "-H", "X-Forwarded-For: 10.0.0.9",
-              "-H", "Content-Type: application/json", "-d", '{"password":"1234"}')
-check("avisa que la contrasena es la de fabrica",
-      login.get("usingDefaultPassword") is True, str(login)[:90])
+login = jcurl("-X", "POST", f"{F}/api/admin/login", "-H", f"X-Forwarded-For: {IP_LIMPIA}",
+              "-H", "Content-Type: application/json",
+              "-d", json.dumps({"password": ADMIN_PASS}))
+if ESPERA_PASS_DE_FABRICA:
+    check("avisa que la contrasena es la de fabrica",
+          login.get("usingDefaultPassword") is True, str(login)[:90])
 check("el bloqueo de fuerza bruta es por IP, no global",
       login.get("ok") is True, "una IP bloqueada no debe afectar a las demas")
+
+print("\nEndurecimiento para internet (staging/produccion)")
+docs = curl(f"{B}/docs", status=True)
+openapi = curl(f"{B}/openapi.json", status=True)
+if os.environ.get("CHECADOR_ESPERA_DOCS_CERRADOS") == "1":
+    check("/docs esta cerrado", docs == "404", f"HTTP {docs}")
+    check("/openapi.json esta cerrado", openapi == "404", f"HTTP {openapi}")
+else:
+    print(f"  (informativo) /docs -> HTTP {docs}, /openapi.json -> HTTP {openapi}")
 
 print("\nIP real detras del proxy")
 psql("DELETE FROM records; DELETE FROM device_alerts;")

@@ -13,11 +13,23 @@ from .config import REPO_ROOT, settings
 from .database import Base, SessionLocal, engine
 from .routers import auth, calendar, device_alerts, employees, justifications, public, records
 
-app = FastAPI(title="Reloj Checador API")
+# `/docs` (y su `/openapi.json`, que es de donde salen los datos) se apagan con
+# DOCS_ENABLED=false. En la LAN de la oficina no estorban; en un servidor
+# alcanzable desde internet publican el mapa entero de la API, endpoints de
+# admin incluidos, a cualquiera que pase. Ver .env.staging.example.
+app = FastAPI(
+    title="Reloj Checador API",
+    docs_url="/docs" if settings.docs_enabled else None,
+    redoc_url="/redoc" if settings.docs_enabled else None,
+    openapi_url="/openapi.json" if settings.docs_enabled else None,
+)
 
+# CORS_ORIGINS acota quien puede llamar a la API desde otro origen. El default
+# sigue siendo "*" para no romper la instalacion de la oficina (LAN de
+# confianza); en staging/produccion se fija el dominio real.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

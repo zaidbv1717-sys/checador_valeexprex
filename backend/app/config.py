@@ -20,7 +20,27 @@ class Settings(BaseSettings):
     # Tope de subida de fotos. Una camara de celular ronda 2-5 MB.
     max_photo_bytes: int = 8 * 1024 * 1024
 
+    # --- Ajustes que solo importan fuera de la LAN de la oficina -------------
+    # En la PC de la oficina el checador vive en una WiFi de confianza y estos
+    # defaults abiertos son comodos. En un servidor alcanzable desde internet
+    # (staging) los dos se cierran por .env; ver .env.staging.example.
+
+    # `/docs` publica el mapa completo de la API, incluidos los endpoints de
+    # admin. Util al desarrollar, regalo para quien busque por donde entrar.
+    docs_enabled: bool = True
+
+    # Origenes permitidos por CORS, separados por coma. "*" es el default
+    # historico (LAN); en internet se acota al dominio real del checador.
+    cors_origins: str = "*"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        """`cors_origins` como lista. Una cadena vacia equivale a no permitir
+        ningun origen cruzado, que es lo correcto cuando el frontend se sirve
+        desde el mismo dominio que la API."""
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
 
 settings = Settings()

@@ -109,6 +109,26 @@ pasan como `environment:` en `docker-compose.yml`):
 | `MAX_PHOTO_BYTES` | Tamaño máximo de foto aceptado | `8388608` (8 MB) |
 | `DEVICE_ALERT_WINDOW_MIN` | Ventana (minutos) para detectar dispositivo compartido | `5` |
 | `DEFAULT_ADMIN_PASSWORD` | Contraseña de admin sembrada la primera vez que arranca | `1234` |
+| `DOCS_ENABLED` | Publica `/docs`, `/redoc` y `/openapi.json`. Se apaga fuera de la LAN | `true` |
+| `CORS_ORIGINS` | Orígenes permitidos, separados por coma. Se acota fuera de la LAN | `*` |
+
+Los dos últimos traen defaults abiertos porque en la oficina el checador vive en una WiFi
+de confianza. En un servidor alcanzable desde internet se cierran; ver
+[`COMPATIBILIDAD_STAGING.md`](COMPATIBILIDAD_STAGING.md).
+
+## Opción 3 — Servidor de staging (VPS compartido con ValeExpress)
+
+El `docker-compose.yml` de arriba **no arranca en el VPS de staging**: pide los puertos 80 y
+5432, que ahí ya están ocupados por nginx y por la base de ValeExpress. Para ese entorno hay
+un compose aparte, con los puertos atados a `127.0.0.1` y sin contraseñas de fábrica:
+
+```bash
+./scripts/deploy_staging.sh
+```
+
+El diagnóstico completo (qué falla, con la evidencia medida en el servidor) y el paso manual
+que falta (crear el DNS `checador.staging.valeexpress.mx`) están en
+[`COMPATIBILIDAD_STAGING.md`](COMPATIBILIDAD_STAGING.md).
 
 ### Zona horaria
 

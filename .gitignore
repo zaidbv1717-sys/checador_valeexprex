@@ -35,3 +35,10 @@ Thumbs.db
 
 # Env vars / secrets
 .env
+# El .env de staging lleva las contrasenas reales de la base y del panel de
+# admin. `.env` a secas NO lo cubre: son nombres distintos. El .example si se
+# versiona (no tiene valores).
+.env.staging
+.env.*
+!.env.example
+!.env.staging.example
