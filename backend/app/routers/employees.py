@@ -112,6 +112,79 @@ async def create_employee(
     return {"ok": True}
 
 
+@router.patch("/employees/{employee_id}")
+async def update_employee(
+    employee_id: str,
+    db: Session = Depends(get_db),
+    name: str | None = Form(None),
+    pin: str | None = Form(None),
+    category: str | None = Form(None),
+    schedIn: str | None = Form(None),
+    schedOut: str | None = Form(None),
+    lunchMinutes: str | None = Form(None),
+    removePhoto: str | None = Form(None),
+    photo: UploadFile | None = File(None),
+):
+    emp = db.get(models.Employee, employee_id)
+    if not emp:
+        return JSONResponse({"ok": False, "error": "empleado no encontrado"}, status_code=404)
+
+    if name is not None:
+        name = name.strip()
+        if not name:
+            return JSONResponse({"ok": False, "error": "el nombre no puede estar vacío"}, status_code=400)
+        emp.name = name
+
+    if pin is not None:
+        pin = pin.strip()
+        if not re.match(r"^\d{4}$", pin):
+            return JSONResponse({"ok": False, "error": "el PIN debe tener 4 dígitos"}, status_code=400)
+        existing = db.query(models.Employee).filter(
+            models.Employee.pin == pin, models.Employee.id != employee_id
+        ).first()
+        if existing:
+            return JSONResponse({"ok": False, "error": "ese PIN ya está en uso"}, status_code=400)
+        emp.pin = pin
+
+    if category is not None:
+        if category not in EMPLOYEE_CATEGORIES:
+            return JSONResponse({"ok": False, "error": "categoría inválida"}, status_code=400)
+        emp.category = category
+
+    if schedIn is not None and schedIn != "":
+        emp.sched_in = schedIn
+    if schedOut is not None and schedOut != "":
+        emp.sched_out = schedOut
+    if lunchMinutes is not None and lunchMinutes != "":
+        emp.lunch_minutes = int(lunchMinutes)
+
+    if photo is not None and photo.filename:
+        ext = ALLOWED_PHOTO_TYPES.get(photo.content_type)
+        if not ext:
+            return JSONResponse({"ok": False, "error": "formato de foto no soportado (usa JPG, PNG o WEBP)"}, status_code=400)
+        photo_bytes = await photo.read()
+        if not photo_bytes:
+            return JSONResponse({"ok": False, "error": "la foto está vacía"}, status_code=400)
+        old_photo_path = emp.photo_path
+        photo_filename = f"{employee_id}{ext}"
+        os.makedirs(settings.photos_dir, exist_ok=True)
+        with open(os.path.join(settings.photos_dir, photo_filename), "wb") as f:
+            f.write(photo_bytes)
+        if old_photo_path and old_photo_path != photo_filename:
+            old_path = os.path.join(settings.photos_dir, old_photo_path)
+            if os.path.isfile(old_path):
+                os.remove(old_path)
+        emp.photo_path = photo_filename
+    elif removePhoto == "true" and emp.photo_path:
+        old_path = os.path.join(settings.photos_dir, emp.photo_path)
+        if os.path.isfile(old_path):
+            os.remove(old_path)
+        emp.photo_path = None
+
+    db.commit()
+    return {"ok": True}
+
+
 @router.delete("/employees/{employee_id}")
 def delete_employee(employee_id: str, db: Session = Depends(get_db)):
     emp = db.get(models.Employee, employee_id)
