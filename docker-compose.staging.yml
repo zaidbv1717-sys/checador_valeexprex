@@ -1,0 +1,150 @@
+# ============================================================
+# Reloj Checador — docker-compose para el VPS de STAGING (45.82.73.42)
+# ============================================================
+# El `docker-compose.yml` de la raiz esta hecho para la PC de la oficina:
+# Docker Desktop, red WiFi de confianza, sin nada mas corriendo en la maquina.
+# En el VPS de staging esa configuracion NO ARRANCA y ademas seria insegura.
+# Tres diferencias, cada una por un problema medido en el servidor:
+#
+#   1. EL PUERTO 80 NO SE PUEDE TOMAR. Nginx del host ya escucha en 0.0.0.0:80
+#      y 443 (es quien termina el TLS de *.staging.valeexpress.mx). Comprobado:
+#        docker run -p 80:80 nginx:alpine
+#        -> failed to bind host port 0.0.0.0:80/tcp: address already in use
+#      Aqui el frontend publica en 127.0.0.1:8085 y el nginx del HOST hace de
+#      puerta publica, igual que con los portales de ValeExpress.
+#
+#   2. EL PUERTO 5432 YA ESTA OCUPADO por valexpress-staging-db. Este Postgres
+#      no publica NINGUN puerto en el host: el backend lo alcanza por la red
+#      interna de compose, que es lo unico que necesita.
+#
+#   3. `ports: "8000:8000"` HABRIA PUESTO LA API EN INTERNET. Docker inserta sus
+#      reglas DNAT ANTES de ufw, asi que "ufw solo permite 22/80/443" no protege
+#      un puerto publicado por Docker. Medido: se levanto un contenedor de prueba
+#      con -p 8000:80 en el VPS y desde esta laptop respondio HTTP 200 en
+#      http://45.82.73.42:8000/ pese a que ufw no tiene esa regla. Con el compose
+#      original, /docs y la API con contrasena de fabrica `1234` habrian quedado
+#      accesibles desde cualquier parte. Todo va atado a 127.0.0.1.
+#
+# USO (el repo del VPS vive en /root/checador-staging):
+#   docker compose -f docker-compose.staging.yml --env-file .env.staging up -d
+#
+# Verificado contra Docker 29.7.2 / Compose v5.5.0 (los del VPS).
+# ============================================================
+
+# Nombre de proyecto FIJO, no derivado de la carpeta. Sin esto, mover o renombrar
+# el directorio en el VPS crea volumenes nuevos y el checador arranca con la base
+# vacia mientras los datos viejos siguen en un volumen huerfano.
+name: checador-staging
+
+# Rotacion de logs: sin esto los json-file crecen sin limite. El VPS tiene 18 GB
+# libres y ya carga 20 GB de build cache; un crash loop escribiendo stack traces
+# llena el disco y se lleva por delante a ValeExpress, que vive en la misma maquina.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: checador_staging_postgres
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?define POSTGRES_USER en .env.staging}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env.staging}
+      POSTGRES_DB: ${POSTGRES_DB:-reloj_checador}
+    # SIN `ports`. El 5432 del host lo tiene valexpress-staging-db, y el backend
+    # llega por la red interna de compose. Publicarlo solo agregaria superficie.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-reloj_checador}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # El VPS tiene 1 CPU y 3.8 GB compartidos con ValeExpress (backend, 3 portales,
+    # su propio Postgres, Redis y Vector). Los limites evitan que un pico del
+    # checador deje sin memoria a la app principal.
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  backend:
+    image: ${CHECADOR_BACKEND_IMAGE:-checador-staging-backend:latest}
+    build: ./backend
+    container_name: checador_staging_backend
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      # La oficina esta en Mazatlan (MST, -0700) y el VPS corre en UTC
+      # (timedatectl: Etc/UTC). Sin esto, toda jornada que termine despues de las
+      # 17:00 cruza de dia y se contabiliza como cero horas mas una falta falsa.
+      # Verificado: python:3.12-slim trae tzdata, zoneinfo resuelve America/Mazatlan.
+      TZ: ${TZ:-America/Mazatlan}
+      OFFICE_TZ: ${OFFICE_TZ:-America/Mazatlan}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-reloj_checador}
+      # Sin default a proposito: en internet una contrasena `1234` se adivina al
+      # primer intento. `:?` aborta el arranque si falta, en vez de sembrarla.
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:?define DEFAULT_ADMIN_PASSWORD en .env.staging}
+      # /docs publica el mapa completo de la API (endpoints de admin incluidos).
+      # En la LAN de la oficina da igual; expuesto a internet, no.
+      DOCS_ENABLED: ${DOCS_ENABLED:-false}
+      # El compose de la oficina permite CORS desde cualquier origen. Aqui se
+      # acota al dominio real; el frontend se sirve del mismo host, asi que no
+      # necesita permiso cruzado para funcionar.
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      MAX_BACKUPS: ${MAX_BACKUPS:-30}
+      DEVICE_ALERT_WINDOW_MIN: ${DEVICE_ALERT_WINDOW_MIN:-5}
+      BACKUP_DIR: /app/data/backups
+      PHOTOS_DIR: /app/data/photos
+      PUNCH_PHOTOS_DIR: /app/data/punch_photos
+    volumes:
+      # Volumenes nombrados y no bind-mounts de ./data: el compose de la oficina
+      # usa carpetas del repo, que en el VPS quedarian bajo /root con permisos de
+      # root y fuera de cualquier respaldo. Un volumen sobrevive a `git pull`,
+      # a mover la carpeta y a recrear el contenedor.
+      - backups:/app/data/backups
+      - photos:/app/data/photos
+      - punch_photos:/app/data/punch_photos
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # 127.0.0.1 y NO 8000:8000: ver la nota 3 de la cabecera. Solo el nginx del
+    # host puede alcanzarlo, y el nginx del host es quien exige HTTPS.
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8001}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
+  frontend:
+    image: ${CHECADOR_FRONTEND_IMAGE:-checador-staging-frontend:latest}
+    build: ./frontend
+    container_name: checador_staging_frontend
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      - backend
+    # El 80 del host es del nginx que termina TLS. Este nginx interno sigue
+    # escuchando en el 80 de SU contenedor; solo cambia el puerto del host.
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-8085}:80"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+volumes:
+  pgdata:
+  backups:
+  photos:
+  punch_photos:

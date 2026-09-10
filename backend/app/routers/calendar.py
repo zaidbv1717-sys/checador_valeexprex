@@ -1,10 +1,9 @@
-from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from .. import reports
+from .. import clock, reports
 from ..database import get_db
 from ..deps import require_admin
 
@@ -18,7 +17,7 @@ def get_calendar(
     month: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
-    now = datetime.now()
+    now = clock.now()
     year = year or now.year
     month = month or now.month
     if not employeeId:

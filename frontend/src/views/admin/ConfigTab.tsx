@@ -7,13 +7,17 @@ export default function ConfigTab() {
   const toast = useToast();
   const { setPass, setUsingDefaultPassword } = useAdminSession();
   const [lunchMinutes, setLunchMinutes] = useState("90");
-  const [recoveryCode, setRecoveryCode] = useState("");
+  // El servidor ya no devuelve el codigo guardado, solo si existe: revelarlo a
+  // quien ya inicio sesion anula su proposito de restablecer la contrasena.
+  // Solo se ve una vez, al generarlo.
+  const [hasRecoveryCode, setHasRecoveryCode] = useState(false);
+  const [freshRecoveryCode, setFreshRecoveryCode] = useState("");
   const [newPass, setNewPass] = useState("");
 
   useEffect(() => {
-    api<{ lunchMinutes: string; recoveryCode: string }>("/api/admin/config").then((r) => {
+    api<{ lunchMinutes: string; hasRecoveryCode: boolean }>("/api/admin/config").then((r) => {
       setLunchMinutes(r.lunchMinutes || "90");
-      setRecoveryCode(r.recoveryCode || "");
+      setHasRecoveryCode(!!r.hasRecoveryCode);
     });
   }, []);
 
@@ -39,7 +43,8 @@ export default function ConfigTab() {
       method: "POST",
       body: JSON.stringify({ generateRecovery: true }),
     });
-    setRecoveryCode(r.recoveryCode || "");
+    setFreshRecoveryCode(r.recoveryCode || "");
+    setHasRecoveryCode(!!r.recoveryCode);
     toast("Código de recuperación regenerado");
   }
 
@@ -73,7 +78,7 @@ export default function ConfigTab() {
       </div>
       <div className="summary-card" style={{ textAlign: "center" }}>
         <div className="summary-total" style={{ letterSpacing: "0.08em", fontSize: 19 }}>
-          {recoveryCode || "—"}
+          {freshRecoveryCode || (hasRecoveryCode ? "••••-••••" : "—")}
         </div>
       </div>
       <div className="row">
@@ -82,8 +87,9 @@ export default function ConfigTab() {
         </button>
       </div>
       <div className="note">
-        Guárdalo en un lugar seguro fuera del sistema (una nota, tu teléfono). Si olvidas la contraseña de
-        administrador, este código es lo único que permite restablecerla desde la pantalla de acceso.
+        {freshRecoveryCode
+          ? "Anótalo AHORA: por seguridad no se vuelve a mostrar. Si lo pierdes, genera uno nuevo."
+          : "Por seguridad el código no se muestra después de generarlo. Si olvidas la contraseña de administrador, este código es lo único que permite restablecerla desde la pantalla de acceso. Si no lo tienes anotado, genera uno nuevo y guárdalo fuera del sistema."}
       </div>
     </>
   );

@@ -9,7 +9,7 @@ from openpyxl.utils import get_column_letter
 from PIL import Image as PILImage
 from sqlalchemy.orm import Session
 
-from .. import models
+from .. import clock, models
 from ..config import settings
 from .common import CATEGORY_LABELS, JUSTIFICATION_TYPE_LABELS
 
@@ -61,7 +61,7 @@ def _style_row(ws, row_idx, font=None, fill=None):
 def _write_payroll_sheet(ws, db, rows, absences, period, date_str, emp_filter):
     period_label = {"dia": "Día", "semana": "Semana", "mes": "Mes", "quincena": "Quincena"}.get(period, period)
     emp_label = "Todos" if (not emp_filter or emp_filter == "all") else emp_filter
-    anchor = date_str or datetime.now().strftime("%Y-%m-%d")
+    anchor = date_str or clock.now().strftime("%Y-%m-%d")
     categories = {e.id: e.category for e in db.query(models.Employee).all()}
 
     ws.append(["Reporte de Asistencia — Reloj Checador"])
@@ -69,7 +69,7 @@ def _write_payroll_sheet(ws, db, rows, absences, period, date_str, emp_filter):
     ws.append([f"Periodo: {period_label}"])
     ws.append([f'Fecha de referencia: {datetime.strptime(anchor, "%Y-%m-%d").strftime("%d/%m/%Y")}'])
     ws.append([f"Empleado: {emp_label}"])
-    ws.append([f'Generado: {datetime.now().strftime("%d/%m/%Y %H:%M")}'])
+    ws.append([f'Generado: {clock.now().strftime("%d/%m/%Y %H:%M")}'])
     ws.append([])
 
     ws.append(PAYROLL_HEADER)

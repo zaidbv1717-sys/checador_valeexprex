@@ -1,8 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
-from . import crud, models
+from . import clock, crud, models
 from .config import settings
 
 
@@ -21,6 +21,6 @@ def check_device_alert(db: Session, ip, employee_id, employee_name, ts):
     if recent:
         db.add(models.DeviceAlert(
             id=crud.uid(), ip=ip, emp1_name=recent.employee_name, emp1_time=recent.timestamp,
-            emp2_name=employee_name, emp2_time=ts, created_at=datetime.now(), resolved=0,
+            emp2_name=employee_name, emp2_time=ts, created_at=clock.now(), resolved=0,
         ))
         db.commit()

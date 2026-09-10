@@ -1,10 +1,8 @@
-from datetime import datetime
-
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from .. import crud, models, schemas
+from .. import clock, crud, models, schemas
 from ..database import get_db
 from ..deps import require_admin
 
@@ -42,7 +40,7 @@ def create_justification(body: schemas.JustificationCreate, db: Session = Depend
     db.add(models.Justification(
         id=crud.uid(), employee_id=body.employeeId, employee_name=body.employeeName,
         date_start=body.dateStart, date_end=date_end, type=body.type, status=body.status,
-        note=note, created_at=datetime.now(),
+        note=note, created_at=clock.now(),
     ))
     db.commit()
     return {"ok": True}
