@@ -13,6 +13,7 @@ export default function AdminLoginView({
 }) {
   const toast = useToast();
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   async function login() {
     const r = await api<{ ok: boolean; usingDefaultPassword?: boolean; error?: string }>("/api/admin/login", {
@@ -38,14 +39,24 @@ export default function AdminLoginView({
         <div className="field-label" style={{ textAlign: "left" }}>
           Acceso de administrador
         </div>
-        <input
-          type="password"
-          placeholder="Contraseña"
-          style={{ marginBottom: 10 }}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && login()}
-        />
+        <div style={{ position: "relative", marginBottom: 10 }}>
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="Contraseña"
+            style={{ paddingRight: 40 }}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && login()}
+          />
+          <button
+            type="button"
+            className="pass-toggle"
+            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+            onClick={() => setShowPassword((v) => !v)}
+          >
+            {showPassword ? "🙈" : "👁"}
+          </button>
+        </div>
         <div className="row">
           <button className="btn" style={{ flex: 1 }} onClick={login}>
             Entrar

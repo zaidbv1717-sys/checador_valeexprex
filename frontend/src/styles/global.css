@@ -92,6 +92,7 @@ input[type=text],input[type=password],input[type=date],input[type=time],input[ty
   width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);font-family:var(--sans);font-size:13px;background:#fff;color:var(--ink);
 }
 input:focus,select:focus{outline:none;border-color:var(--brand-teal);box-shadow:0 0 0 3px rgba(0,191,210,0.12);}
+.pass-toggle{position:absolute;top:0;right:0;bottom:0;width:36px;background:none;border:none;cursor:pointer;font-size:15px;line-height:1;display:flex;align-items:center;justify-content:center;}
 .btn{padding:10px 14px;border-radius:8px;border:none;background:var(--ink);color:#fff;font-size:12px;font-weight:700;cursor:pointer;}
 .btn.secondary{background:var(--brand-teal-deep);}
 .btn.ghost{background:none;border:1px solid var(--border);color:var(--muted);}
