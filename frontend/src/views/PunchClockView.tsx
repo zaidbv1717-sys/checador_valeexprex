@@ -24,6 +24,21 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
     return () => window.clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    if (activeEmployee) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key >= "0" && e.key <= "9") {
+        addDigit(e.key);
+      } else if (e.key === "Backspace") {
+        backspace();
+      } else if (e.key === "Escape") {
+        setPin("");
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeEmployee, pin]);
+
   function clearSession() {
     setActiveEmployee(null);
     setSessionPin("");
