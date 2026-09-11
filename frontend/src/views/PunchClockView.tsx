@@ -30,6 +30,7 @@ export default function PunchClockView({ onGoAdmin }: { onGoAdmin: () => void })
       if (e.key >= "0" && e.key <= "9") {
         addDigit(e.key);
       } else if (e.key === "Backspace") {
+        e.preventDefault();
         backspace();
       } else if (e.key === "Escape") {
         setPin("");
