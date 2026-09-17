@@ -13,13 +13,20 @@ export default function ConfigTab() {
   const [hasRecoveryCode, setHasRecoveryCode] = useState(false);
   const [freshRecoveryCode, setFreshRecoveryCode] = useState("");
   const [newPass, setNewPass] = useState("");
+  const [officialEmail, setOfficialEmail] = useState("");
 
   useEffect(() => {
-    api<{ lunchMinutes: string; hasRecoveryCode: boolean }>("/api/admin/config").then((r) => {
+    api<{ lunchMinutes: string; hasRecoveryCode: boolean; officialEmail?: string }>("/api/admin/config").then((r) => {
       setLunchMinutes(r.lunchMinutes || "90");
       setHasRecoveryCode(!!r.hasRecoveryCode);
+      setOfficialEmail(r.officialEmail || "");
     });
   }, []);
+
+  async function saveOfficialEmail() {
+    await api("/api/admin/config", { method: "POST", body: JSON.stringify({ officialEmail }) });
+    toast("Correo oficial guardado");
+  }
 
   async function saveLunch() {
     await api("/api/admin/config", { method: "POST", body: JSON.stringify({ lunchMinutes }) });
@@ -39,13 +46,19 @@ export default function ConfigTab() {
   }
 
   async function regenerateRecovery() {
-    const r = await api<{ recoveryCode?: string }>("/api/admin/config", {
+    const r = await api<{ recoveryCode?: string; emailError?: string | null }>("/api/admin/config", {
       method: "POST",
       body: JSON.stringify({ generateRecovery: true }),
     });
     setFreshRecoveryCode(r.recoveryCode || "");
     setHasRecoveryCode(!!r.recoveryCode);
-    toast("Código de recuperación regenerado");
+    if (r.emailError) {
+      toast(`Código regenerado, pero no se pudo enviar por correo: ${r.emailError}`);
+    } else if (officialEmail) {
+      toast("Código regenerado y enviado al correo oficial");
+    } else {
+      toast("Código de recuperación regenerado");
+    }
   }
 
   return (
@@ -71,6 +84,24 @@ export default function ConfigTab() {
         <button className="btn" onClick={savePassword}>
           Guardar
         </button>
+      </div>
+
+      <div className="field-label" style={{ textAlign: "left", marginTop: 22 }}>
+        Correo oficial
+      </div>
+      <div className="row">
+        <input
+          type="email"
+          placeholder="admin@empresa.com"
+          value={officialEmail}
+          onChange={(e) => setOfficialEmail(e.target.value)}
+        />
+        <button className="btn secondary" onClick={saveOfficialEmail}>
+          Guardar
+        </button>
+      </div>
+      <div className="note">
+        Cada vez que generes un código de recuperación nuevo, se enviará automáticamente a este correo.
       </div>
 
       <div className="field-label" style={{ textAlign: "left", marginTop: 22 }}>

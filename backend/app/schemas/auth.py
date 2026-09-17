@@ -7,6 +7,7 @@ class ConfigUpdate(BaseModel):
     password: Optional[str] = None
     lunchMinutes: Optional[str] = None
     generateRecovery: Optional[bool] = None
+    officialEmail: Optional[str] = None
 
 
 class LoginRequest(BaseModel):
