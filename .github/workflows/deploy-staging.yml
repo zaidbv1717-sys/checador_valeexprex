@@ -1,0 +1,64 @@
+# ============================================================
+# Deploy del Reloj Checador al VPS de STAGING en cada push a main
+# ============================================================
+# Reutiliza scripts/deploy_staging.sh: la logica del despliegue vive en un
+# solo lugar y lo que corre en CI es exactamente lo que se corre a mano.
+#
+# Requiere estos secretos en GitHub (Settings > Secrets and variables >
+# Actions > New repository secret):
+#
+#   VPS_HOST          IP o hostname del VPS (45.82.73.42)
+#   VPS_USER          usuario SSH con acceso a docker (root)
+#   VPS_SSH_KEY       llave privada (ed25519) cuya publica este en
+#                     ~/.ssh/authorized_keys del VPS. Generar una dedicada:
+#                       ssh-keygen -t ed25519 -f checador-deploy -N ""
+#                       ssh-copy-id -i checador-deploy.pub $VPS_USER@$VPS_HOST
+#   VPS_KNOWN_HOSTS   salida de `ssh-keyscan $VPS_HOST`. Fijar la huella del
+#                     servidor evita que un MITM suplante al VPS en el primer
+#                     contacto del runner (los runners son efimeros, sin
+#                     known_hosts previo).
+#
+# Ademas, en el VPS ya debe existir /root/checador-staging/.env.staging
+# (ver .env.staging.example). Los secretos de la app no viajan por CI:
+# el deploy script aborta si el archivo no esta ahi.
+# ============================================================
+
+name: Deploy staging
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Dos pushes seguidos no deben desplegar en paralelo sobre el mismo servidor:
+# se encolan y el segundo corre con el codigo mas reciente.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar acceso SSH al VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          if [ -n "$VPS_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          fi
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Desplegar al VPS
+        env:
+          CHECADOR_HOST: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+        run: ./scripts/deploy_staging.sh
