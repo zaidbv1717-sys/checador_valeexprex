@@ -1,3 +1,4 @@
+import json
 import random
 import string
 import uuid
@@ -31,3 +32,16 @@ def set_config(db: Session, partial: dict) -> None:
         else:
             db.add(models.ConfigEntry(key=k, value=str(v)))
     db.commit()
+
+
+def get_security_questions(db: Session) -> list[dict]:
+    """Lista de {"question": str, "answerHash": str}, guardada como JSON en la
+    misma tabla generica de config bajo la clave "security_questions"."""
+    raw = get_config(db).get("security_questions")
+    if not raw:
+        return []
+    return json.loads(raw)
+
+
+def set_security_questions(db: Session, questions: list[dict]) -> None:
+    set_config(db, {"security_questions": json.dumps(questions)})

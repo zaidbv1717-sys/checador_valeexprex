@@ -11,6 +11,12 @@ from ..net import client_ip
 router = APIRouter(prefix="/admin", tags=["admin-auth"])
 
 
+def _normalize_answer(answer: str) -> str:
+    # Mismo criterio en guardado y verificacion: sin esto "Guadalajara" y
+    # "guadalajara " se tratarian como respuestas distintas.
+    return answer.strip().lower()
+
+
 @router.post("/login")
 def login(request: Request, body: schemas.LoginRequest, db: Session = Depends(get_db)):
     # Sin freno, una contrasena de 4 caracteres se agota en minutos.
@@ -59,6 +65,63 @@ def recover(request: Request, body: schemas.RecoverRequest, db: Session = Depend
         return JSONResponse({"ok": False, "error": "Código de recuperación incorrecto"}, status_code=400)
     if len(new_pass) < 4:
         return JSONResponse({"ok": False, "error": "La nueva contraseña debe tener al menos 4 caracteres"}, status_code=400)
+    rate_limit.reset(key)
+    crud.set_config(db, {"password": security.hash_password(new_pass)})
+    return {"ok": True}
+
+
+@router.get("/security-questions")
+def get_security_questions(db: Session = Depends(get_db)):
+    # Publico a proposito: quien perdio la contrasena necesita ver las
+    # preguntas antes de iniciar sesion. Las respuestas nunca se exponen aqui.
+    questions = crud.get_security_questions(db)
+    return {"questions": [q["question"] for q in questions]}
+
+
+@router.post("/security-questions", dependencies=[Depends(require_admin)])
+def set_security_questions(body: schemas.SecurityQuestionsUpdate, db: Session = Depends(get_db)):
+    cleaned = [
+        {"question": q.question.strip(), "answerHash": security.hash_password(_normalize_answer(q.answer))}
+        for q in body.questions
+        if q.question.strip() and q.answer.strip()
+    ]
+    if len(cleaned) < 3:
+        return JSONResponse(
+            {"ok": False, "error": "Configura al menos 3 preguntas, todas con pregunta y respuesta"},
+            status_code=400,
+        )
+    crud.set_security_questions(db, cleaned)
+    return {"ok": True}
+
+
+@router.post("/recover-security")
+def recover_security(request: Request, body: schemas.SecurityRecoverRequest, db: Session = Depends(get_db)):
+    key = f"recover-security:{client_ip(request)}"
+    if rate_limit.is_locked(key):
+        return JSONResponse(
+            {"ok": False, "error": "Demasiados intentos. Espera unos minutos."},
+            status_code=429,
+        )
+
+    questions = crud.get_security_questions(db)
+    if not questions:
+        return JSONResponse({"ok": False, "error": "No hay preguntas de seguridad configuradas"}, status_code=400)
+    if len(body.answers) != len(questions):
+        rate_limit.register_failure(key)
+        return JSONResponse({"ok": False, "error": "Respuestas incompletas"}, status_code=400)
+
+    all_correct = all(
+        security.verify_password(_normalize_answer(given), q["answerHash"])
+        for given, q in zip(body.answers, questions)
+    )
+    if not all_correct:
+        rate_limit.register_failure(key)
+        return JSONResponse({"ok": False, "error": "Una o más respuestas son incorrectas"}, status_code=400)
+
+    new_pass = body.newPassword.strip()
+    if len(new_pass) < 4:
+        return JSONResponse({"ok": False, "error": "La nueva contraseña debe tener al menos 4 caracteres"}, status_code=400)
+
     rate_limit.reset(key)
     crud.set_config(db, {"password": security.hash_password(new_pass)})
     return {"ok": True}
