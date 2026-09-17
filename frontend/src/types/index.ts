@@ -14,6 +14,10 @@ export interface Employee {
   category: string;
   lunch_minutes: number | null;
   photoUrl: string | null;
+  phone: string | null;
+  email: string | null;
+  emergencyContact: string | null;
+  medicalHistory: string | null;
 }
 
 export interface Category {

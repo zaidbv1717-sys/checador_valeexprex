@@ -16,6 +16,8 @@ export default function EmployeesTab() {
   const [schedIn, setSchedIn] = useState("");
   const [schedOut, setSchedOut] = useState("");
   const [lunchMin, setLunchMin] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
@@ -26,6 +28,10 @@ export default function EmployeesTab() {
   const [editSchedIn, setEditSchedIn] = useState("");
   const [editSchedOut, setEditSchedOut] = useState("");
   const [editLunchMin, setEditLunchMin] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editEmergencyContact, setEditEmergencyContact] = useState("");
+  const [editMedicalHistory, setEditMedicalHistory] = useState("");
   const [editPhoto, setEditPhoto] = useState<File | null>(null);
   const [editPhotoPreview, setEditPhotoPreview] = useState<string | null>(null);
   const [editPhotoRemoved, setEditPhotoRemoved] = useState(false);
@@ -74,6 +80,8 @@ export default function EmployeesTab() {
     form.append("schedIn", schedIn);
     form.append("schedOut", schedOut);
     form.append("lunchMinutes", lunchMin);
+    form.append("phone", phone.trim());
+    form.append("email", email.trim());
     form.append("photo", photo);
     const r = await api<{ ok: boolean; error?: string }>("/api/admin/employees", {
       method: "POST",
@@ -82,6 +90,8 @@ export default function EmployeesTab() {
     if (r.ok) {
       setName("");
       setPin("");
+      setPhone("");
+      setEmail("");
       setPhoto(null);
       if (photoInputRef.current) photoInputRef.current.value = "";
       load();
@@ -108,6 +118,10 @@ export default function EmployeesTab() {
     setEditSchedIn(emp.sched_in);
     setEditSchedOut(emp.sched_out);
     setEditLunchMin(String(emp.lunch_minutes ?? ""));
+    setEditPhone(emp.phone || "");
+    setEditEmail(emp.email || "");
+    setEditEmergencyContact(emp.emergencyContact || "");
+    setEditMedicalHistory(emp.medicalHistory || "");
     setEditPhoto(null);
     setEditPhotoRemoved(false);
     if (editPhotoInputRef.current) editPhotoInputRef.current.value = "";
@@ -158,6 +172,10 @@ export default function EmployeesTab() {
     form.append("schedIn", editSchedIn);
     form.append("schedOut", editSchedOut);
     form.append("lunchMinutes", editLunchMin);
+    form.append("phone", editPhone.trim());
+    form.append("email", editEmail.trim());
+    form.append("emergencyContact", editEmergencyContact.trim());
+    form.append("medicalHistory", editMedicalHistory.trim());
     if (editPhoto) {
       form.append("photo", editPhoto);
     } else if (editPhotoRemoved) {
@@ -200,6 +218,12 @@ export default function EmployeesTab() {
             </option>
           ))}
         </select>
+      </div>
+      <div className="row">
+        <input type="tel" placeholder="Teléfono (opcional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+      </div>
+      <div className="row">
+        <input type="email" placeholder="Correo electrónico (opcional)" value={email} onChange={(e) => setEmail(e.target.value)} />
       </div>
       <div className="row">
         <div style={{ flex: 1 }}>
@@ -252,6 +276,7 @@ export default function EmployeesTab() {
                   <br />
                   <span className="pin">
                     {e.sched_in}–{e.sched_out} · comida {e.lunch_minutes || 90} min
+                    {e.phone ? ` · ${e.phone}` : ""}
                   </span>
                 </span>
               </span>
@@ -283,27 +308,27 @@ export default function EmployeesTab() {
           <div
             className="card"
             onClick={(e) => e.stopPropagation()}
-            style={{ width: "min(420px, 92vw)", maxHeight: "88vh", overflowY: "auto", padding: 20, margin: 0 }}
+            style={{ width: "min(460px, 92vw)", maxHeight: "88vh", overflowY: "auto", padding: 20, margin: 0 }}
           >
-            <h3 style={{ marginTop: 0, marginBottom: 14, color: "var(--ink)" }}>Editar a {editing.name}</h3>
-
-            <div className="row" style={{ alignItems: "center" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 16 }}>
               {editPhotoPreview ? (
-                <img className="emp-avatar" src={editPhotoPreview} alt={editName} />
+                <img className="emp-avatar emp-avatar-lg" src={editPhotoPreview} alt={editName} />
               ) : editPhotoRemoved ? (
-                <span className="emp-avatar emp-avatar-empty" aria-hidden="true" />
+                <span className="emp-avatar emp-avatar-lg emp-avatar-empty" aria-hidden="true" />
               ) : (
-                <EmployeePhoto url={editing.photoUrl} alt={editing.name} />
+                <EmployeePhoto url={editing.photoUrl} alt={editing.name} large />
               )}
-              <button className="small-btn" style={{ color: "var(--brand-teal-deep)" }} disabled={!canEnlarge} onClick={openEnlarge}>
-                Ver en grande
-              </button>
-              <button className="small-btn" disabled={!canRemovePhoto} onClick={handleRemoveEditPhoto}>
-                Eliminar foto
-              </button>
-            </div>
-            <div className="row">
-              <div style={{ flex: 1 }}>
+              <h3 style={{ margin: "10px 0 2px", color: "var(--ink)" }}>{editName || editing.name}</h3>
+              <span className={`cat-badge ${editCategory}`}>{CATEGORY_LABEL[editCategory] || "Trabajador"}</span>
+              <div className="row" style={{ marginTop: 8 }}>
+                <button className="small-btn" style={{ color: "var(--brand-teal-deep)" }} disabled={!canEnlarge} onClick={openEnlarge}>
+                  Ver en grande
+                </button>
+                <button className="small-btn" disabled={!canRemovePhoto} onClick={handleRemoveEditPhoto}>
+                  Eliminar foto
+                </button>
+              </div>
+              <div style={{ width: "100%", marginTop: 8 }}>
                 <label style={{ fontSize: 11, color: "var(--muted)" }}>Cambiar foto</label>
                 <input
                   ref={editPhotoInputRef}
@@ -314,6 +339,9 @@ export default function EmployeesTab() {
               </div>
             </div>
 
+            <div className="field-label" style={{ textAlign: "left" }}>
+              Datos generales
+            </div>
             <div className="row">
               <input type="text" placeholder="Nombre del empleado" value={editName} onChange={(e) => setEditName(e.target.value)} />
             </div>
@@ -350,6 +378,37 @@ export default function EmployeesTab() {
                 <label style={{ fontSize: 11, color: "var(--muted)" }}>Minutos para comer</label>
                 <input type="number" min={0} value={editLunchMin} onChange={(e) => setEditLunchMin(e.target.value)} />
               </div>
+            </div>
+
+            <div className="field-label" style={{ textAlign: "left", marginTop: 18 }}>
+              Contacto
+            </div>
+            <div className="row">
+              <input type="tel" placeholder="Teléfono" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
+            </div>
+            <div className="row">
+              <input type="email" placeholder="Correo electrónico" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+            </div>
+            <div className="row">
+              <input
+                type="text"
+                placeholder="Contacto de emergencia (nombre y teléfono)"
+                value={editEmergencyContact}
+                onChange={(e) => setEditEmergencyContact(e.target.value)}
+              />
+            </div>
+
+            <div className="field-label" style={{ textAlign: "left", marginTop: 18 }}>
+              Historial médico
+            </div>
+            <div className="row">
+              <textarea
+                placeholder="Alergias, padecimientos, medicamentos, etc. (opcional)"
+                rows={3}
+                value={editMedicalHistory}
+                onChange={(e) => setEditMedicalHistory(e.target.value)}
+                style={{ width: "100%", resize: "vertical", fontFamily: "inherit", fontSize: 14, padding: 8 }}
+              />
             </div>
 
             <div className="row" style={{ marginTop: 10 }}>
