@@ -1,4 +1,11 @@
-from .auth import ConfigUpdate, LoginRequest, RecoverRequest
+from .auth import (
+    ConfigUpdate,
+    LoginRequest,
+    RecoverRequest,
+    SecurityQuestionItem,
+    SecurityQuestionsUpdate,
+    SecurityRecoverRequest,
+)
 from .device_alerts import ResolveAlertRequest
 from .justifications import JustificationCreate, JustificationStatusUpdate
 from .public import VerifyPinRequest
@@ -8,6 +15,9 @@ __all__ = [
     "ConfigUpdate",
     "LoginRequest",
     "RecoverRequest",
+    "SecurityQuestionItem",
+    "SecurityQuestionsUpdate",
+    "SecurityRecoverRequest",
     "ResolveAlertRequest",
     "JustificationCreate",
     "JustificationStatusUpdate",
