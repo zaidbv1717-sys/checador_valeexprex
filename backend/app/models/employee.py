@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Text
 
 from ..database import Base
 
@@ -14,3 +14,7 @@ class Employee(Base):
     category = Column(String, default="trabajador")
     lunch_minutes = Column(Integer, nullable=True)
     photo_path = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    emergency_contact = Column(String, nullable=True)
+    medical_history = Column(Text, nullable=True)

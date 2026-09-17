@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { fetchAuthedBlob } from "../api/client";
 
-export default function EmployeePhoto({ url, alt }: { url: string | null; alt: string }) {
+export default function EmployeePhoto({ url, alt, large }: { url: string | null; alt: string; large?: boolean }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const className = `emp-avatar${large ? " emp-avatar-lg" : ""}`;
 
   useEffect(() => {
     if (!url) {
@@ -20,7 +21,7 @@ export default function EmployeePhoto({ url, alt }: { url: string | null; alt: s
   }, [url]);
 
   if (!blobUrl) {
-    return <span className="emp-avatar emp-avatar-empty" aria-hidden="true" />;
+    return <span className={`${className} emp-avatar-empty`} aria-hidden="true" />;
   }
-  return <img className="emp-avatar" src={blobUrl} alt={alt} />;
+  return <img className={className} src={blobUrl} alt={alt} />;
 }

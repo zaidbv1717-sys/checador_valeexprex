@@ -68,6 +68,11 @@ def on_startup():
         # Migración: employees/records creados antes de requerir foto no tienen esta columna.
         conn.execute(text("ALTER TABLE employees ADD COLUMN IF NOT EXISTS photo_path VARCHAR"))
         conn.execute(text("ALTER TABLE records ADD COLUMN IF NOT EXISTS photo_path VARCHAR"))
+        # Migración: datos de perfil agregados despues del alta inicial de empleados.
+        conn.execute(text("ALTER TABLE employees ADD COLUMN IF NOT EXISTS phone VARCHAR"))
+        conn.execute(text("ALTER TABLE employees ADD COLUMN IF NOT EXISTS email VARCHAR"))
+        conn.execute(text("ALTER TABLE employees ADD COLUMN IF NOT EXISTS emergency_contact VARCHAR"))
+        conn.execute(text("ALTER TABLE employees ADD COLUMN IF NOT EXISTS medical_history TEXT"))
         # Una sola marca de cada tipo por empleado y dia. Antes esto vivia solo en
         # codigo (consultar-luego-insertar), que no protege contra dos peticiones
         # simultaneas. SQLAlchemy no puede declarar un indice sobre date(timestamp),

@@ -44,6 +44,9 @@ def list_employees(db: Session = Depends(get_db)):
             "sched_in": e.sched_in, "sched_out": e.sched_out,
             "category": e.category, "lunch_minutes": e.lunch_minutes,
             "photoUrl": _photo_url(e),
+            "phone": e.phone, "email": e.email,
+            "emergencyContact": e.emergency_contact,
+            "medicalHistory": e.medical_history,
         }
         for e in emps
     ]}
@@ -77,6 +80,10 @@ async def create_employee(
     schedIn: str = Form(""),
     schedOut: str = Form(""),
     lunchMinutes: str = Form(""),
+    phone: str = Form(""),
+    email: str = Form(""),
+    emergencyContact: str = Form(""),
+    medicalHistory: str = Form(""),
     photo: UploadFile = File(...),
 ):
     name = name.strip()
@@ -107,6 +114,9 @@ async def create_employee(
     db.add(models.Employee(
         id=employee_id, name=name, pin=pin, sched_in=sched_in, sched_out=sched_out,
         category=category, lunch_minutes=lunch_minutes, photo_path=photo_filename,
+        phone=phone.strip() or None, email=email.strip() or None,
+        emergency_contact=emergencyContact.strip() or None,
+        medical_history=medicalHistory.strip() or None,
     ))
     db.commit()
     return {"ok": True}
@@ -122,6 +132,10 @@ async def update_employee(
     schedIn: str | None = Form(None),
     schedOut: str | None = Form(None),
     lunchMinutes: str | None = Form(None),
+    phone: str | None = Form(None),
+    email: str | None = Form(None),
+    emergencyContact: str | None = Form(None),
+    medicalHistory: str | None = Form(None),
     removePhoto: str | None = Form(None),
     photo: UploadFile | None = File(None),
 ):
@@ -157,6 +171,14 @@ async def update_employee(
         emp.sched_out = schedOut
     if lunchMinutes is not None and lunchMinutes != "":
         emp.lunch_minutes = int(lunchMinutes)
+    if phone is not None:
+        emp.phone = phone.strip() or None
+    if email is not None:
+        emp.email = email.strip() or None
+    if emergencyContact is not None:
+        emp.emergency_contact = emergencyContact.strip() or None
+    if medicalHistory is not None:
+        emp.medical_history = medicalHistory.strip() or None
 
     if photo is not None and photo.filename:
         ext = ALLOWED_PHOTO_TYPES.get(photo.content_type)
