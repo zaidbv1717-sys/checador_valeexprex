@@ -33,6 +33,17 @@ class Settings(BaseSettings):
     # historico (LAN); en internet se acota al dominio real del checador.
     cors_origins: str = "*"
 
+    # --- SMTP para enviar el codigo de recuperacion al correo oficial --------
+    # Vacios por default: sin ellos el envio de correo simplemente falla con un
+    # error claro en vez de impedir que arranque el resto de la app.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    # Remitente que ve el destinatario. Si se deja vacio se usa smtp_user.
+    smtp_from: str = ""
+    smtp_use_tls: bool = True
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     @property
