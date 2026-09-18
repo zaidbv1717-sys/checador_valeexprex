@@ -9,10 +9,12 @@
 #
 #   VPS_HOST          IP o hostname del VPS (45.82.73.42)
 #   VPS_USER          usuario SSH con acceso a docker (root)
-#   VPS_SSH_KEY       llave privada (ed25519) cuya publica este en
-#                     ~/.ssh/authorized_keys del VPS. Generar una dedicada:
+#   VPS_SSH_KEY       llave privada (ed25519) en BASE64 DE UNA SOLA LINEA
+#                     (no el PEM multilinea: el PEM se corrompe facil al
+#                     pegarlo en la caja de secretos de GitHub). Generarla:
 #                       ssh-keygen -t ed25519 -f checador-deploy -N ""
 #                       ssh-copy-id -i checador-deploy.pub $VPS_USER@$VPS_HOST
+#                       base64 -w0 checador-deploy
 #   VPS_KNOWN_HOSTS   salida de `ssh-keyscan $VPS_HOST`. Fijar la huella del
 #                     servidor evita que un MITM suplante al VPS en el primer
 #                     contacto del runner (los runners son efimeros, sin
@@ -49,13 +51,18 @@ jobs:
           VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          # La llave viaja en base64 de una linea: no hay saltos de linea ni
+          # CRLF que se corrompan al pegarla en la caja de secretos.
+          printf '%s' "$VPS_SSH_KEY" | tr -d ' \n\r\t' | base64 -d > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
+          ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null
           if [ -n "$VPS_KNOWN_HOSTS" ]; then
             printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          else
-            ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
           fi
+          # El keyscan va ADEMAS del secreto, no en su lugar: si el secreto se
+          # pego mal (espacios, saltos perdidos), la huella escaneada en vivo
+          # igual deja pasar la conexion.
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
           chmod 644 ~/.ssh/known_hosts
 
       - name: Desplegar al VPS
