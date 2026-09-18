@@ -21,6 +21,17 @@ export default function AdminRecoverView({ onDone, onCancel }: { onDone: () => v
     });
   }, [method]);
 
+  async function resendCode() {
+    const r = await api<{ ok: boolean; error?: string }>("/api/admin/recover/resend-code", {
+      method: "POST",
+    });
+    if (r.ok) {
+      toast("Código enviado al correo oficial");
+    } else {
+      toast(r.error || "No se pudo enviar el código");
+    }
+  }
+
   async function doRecover() {
     const r = await api<{ ok: boolean; error?: string }>("/api/admin/recover", {
       method: "POST",
@@ -83,6 +94,11 @@ export default function AdminRecoverView({ onDone, onCancel }: { onDone: () => v
               Pide el código de recuperación a quien tenga acceso a la computadora donde corre el
               sistema, revisa el correo oficial (si se configuró uno en Ajustes), o consúltalo en
               Config una vez adentro.
+            </div>
+            <div className="row" style={{ marginBottom: 14 }}>
+              <button className="btn ghost" style={{ flex: 1 }} onClick={resendCode}>
+                Enviar código al correo oficial
+              </button>
             </div>
             <input
               type="text"

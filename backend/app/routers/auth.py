@@ -70,6 +70,41 @@ def recover(request: Request, body: schemas.RecoverRequest, db: Session = Depend
     return {"ok": True}
 
 
+@router.post("/recover/resend-code")
+def resend_recovery_code(request: Request, db: Session = Depends(get_db)):
+    # Publico a proposito: es justo para quien no puede iniciar sesion y el
+    # correo original no llego (p. ej. el SMTP no estaba configurado todavia).
+    # No revela el codigo aqui: solo dispara el mismo envio que ya hace
+    # generateRecovery, al correo oficial ya guardado.
+    key = f"recover-resend:{client_ip(request)}"
+    if rate_limit.is_locked(key):
+        return JSONResponse(
+            {"ok": False, "error": "Demasiados intentos. Espera unos minutos."},
+            status_code=429,
+        )
+    rate_limit.register_failure(key)
+
+    cfg = crud.get_config(db)
+    code = cfg.get("recovery_code", "")
+    official_email = cfg.get("official_email", "").strip()
+    if not code:
+        return JSONResponse({"ok": False, "error": "No hay código de recuperación generado"}, status_code=400)
+    if not official_email:
+        return JSONResponse({"ok": False, "error": "No hay correo oficial configurado en Ajustes"}, status_code=400)
+
+    try:
+        mailer.send_email(
+            official_email,
+            "Código de recuperación - Reloj Checador",
+            f"Tu código de recuperación para restablecer la contraseña de administrador es:\n\n{code}\n\n"
+            "Si no lo solicitaste, cambia la contraseña de administrador cuanto antes.",
+        )
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+
+    return {"ok": True}
+
+
 @router.get("/security-questions")
 def get_security_questions(db: Session = Depends(get_db)):
     # Publico a proposito: quien perdio la contrasena necesita ver las
