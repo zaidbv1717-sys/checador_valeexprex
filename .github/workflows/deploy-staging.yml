@@ -53,9 +53,11 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           if [ -n "$VPS_KNOWN_HOSTS" ]; then
             printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          else
-            ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
           fi
+          # El keyscan va ADEMAS del secreto, no en su lugar: si el secreto se
+          # pego mal (espacios, saltos perdidos), la huella escaneada en vivo
+          # igual deja pasar la conexion.
+          ssh-keyscan "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
           chmod 644 ~/.ssh/known_hosts
 
       - name: Desplegar al VPS
