@@ -10,6 +10,7 @@ export default function EmployeesTab() {
   const toast = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [search, setSearch] = useState("");
   const [name, setName] = useState("");
   const [pin, setPin] = useState("");
   const [category, setCategory] = useState("trabajador");
@@ -262,9 +263,22 @@ export default function EmployeesTab() {
           Agregar empleado
         </button>
       </div>
+      <div className="row" style={{ marginTop: 16 }}>
+        <input
+          type="text"
+          placeholder="Buscar empleado por nombre..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
       <div style={{ marginTop: 6 }}>
-        {employees.length ? (
-          employees.map((e) => (
+        {(() => {
+          const filtered = employees.filter((e) =>
+            e.name.toLowerCase().includes(search.trim().toLowerCase())
+          );
+          if (!employees.length) return <div className="msg-empty">Aún no hay empleados</div>;
+          if (!filtered.length) return <div className="msg-empty">Ningún empleado coincide con "{search}"</div>;
+          return filtered.map((e) => (
             <div className="emp-item" key={e.id}>
               <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <EmployeePhoto url={e.photoUrl} alt={e.name} />
@@ -283,17 +297,15 @@ export default function EmployeesTab() {
               <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <span className="pin">PIN {e.pin}</span>
                 <button className="small-btn" style={{ color: "var(--brand-teal-deep)" }} onClick={() => openEdit(e)}>
-                  Editar
+                  Ver perfil
                 </button>
                 <button className="small-btn" onClick={() => deleteEmployee(e.id, e.name)}>
                   Eliminar
                 </button>
               </span>
             </div>
-          ))
-        ) : (
-          <div className="msg-empty">Aún no hay empleados</div>
-        )}
+          ));
+        })()}
       </div>
 
       {editing && (
