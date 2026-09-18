@@ -31,3 +31,7 @@ class SecurityQuestionsUpdate(BaseModel):
 class SecurityRecoverRequest(BaseModel):
     answers: List[str] = []
     newPassword: str = ""
+
+
+class SecurityAnswersVerify(BaseModel):
+    answers: List[str] = []

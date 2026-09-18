@@ -11,7 +11,11 @@ export default function AdminRecoverView({ onDone, onCancel }: { onDone: () => v
 
   const [questions, setQuestions] = useState<string[]>([]);
   const [answers, setAnswers] = useState<string[]>([]);
+  const [answersVerified, setAnswersVerified] = useState(false);
   const [newPass2, setNewPass2] = useState("");
+  const [confirmPass2, setConfirmPass2] = useState("");
+  const [showPass2, setShowPass2] = useState(false);
+  const [showConfirmPass2, setShowConfirmPass2] = useState(false);
 
   useEffect(() => {
     if (method !== "questions" || questions.length) return;
@@ -45,7 +49,28 @@ export default function AdminRecoverView({ onDone, onCancel }: { onDone: () => v
     }
   }
 
+  async function verifyAnswers() {
+    const r = await api<{ ok: boolean; error?: string }>("/api/admin/recover-security/verify", {
+      method: "POST",
+      body: JSON.stringify({ answers: answers.map((a) => a.trim()) }),
+    });
+    if (r.ok) {
+      toast("Respuestas correctas");
+      setAnswersVerified(true);
+    } else {
+      toast(r.error || "No se pudo verificar");
+    }
+  }
+
   async function doRecoverSecurity() {
+    if (newPass2.trim().length < 4) {
+      toast("Usa al menos 4 caracteres");
+      return;
+    }
+    if (newPass2.trim() !== confirmPass2.trim()) {
+      toast("Las contraseñas no coinciden");
+      return;
+    }
     const r = await api<{ ok: boolean; error?: string }>("/api/admin/recover-security", {
       method: "POST",
       body: JSON.stringify({ answers: answers.map((a) => a.trim()), newPassword: newPass2.trim() }),
@@ -82,7 +107,10 @@ export default function AdminRecoverView({ onDone, onCancel }: { onDone: () => v
           <button
             className={method === "questions" ? "btn secondary" : "btn ghost"}
             style={{ flex: 1 }}
-            onClick={() => setMethod("questions")}
+            onClick={() => {
+              setMethod("questions");
+              setAnswersVerified(false);
+            }}
           >
             Preguntas de seguridad
           </button>
@@ -123,44 +151,86 @@ export default function AdminRecoverView({ onDone, onCancel }: { onDone: () => v
               </button>
             </div>
           </>
+        ) : questions.length === 0 ? (
+          <>
+            <div className="note" style={{ marginTop: -8, marginBottom: 14 }}>
+              Este sistema no tiene preguntas de seguridad configuradas. Usa el código de
+              recuperación en su lugar.
+            </div>
+            <div className="row">
+              <button className="btn ghost" style={{ flex: 1 }} onClick={onCancel}>
+                Volver
+              </button>
+            </div>
+          </>
+        ) : !answersVerified ? (
+          <>
+            {questions.map((q, i) => (
+              <div key={i} style={{ marginBottom: 10 }}>
+                <div className="note" style={{ marginTop: 0, marginBottom: 4, textAlign: "left" }}>
+                  {q}
+                </div>
+                <input
+                  type="text"
+                  placeholder="Respuesta"
+                  value={answers[i] || ""}
+                  onChange={(e) => setAnswers((prev) => prev.map((p, idx) => (idx === i ? e.target.value : p)))}
+                />
+              </div>
+            ))}
+            <div className="row">
+              <button className="btn secondary" style={{ flex: 1 }} onClick={verifyAnswers}>
+                Verificar respuestas
+              </button>
+              <button className="btn ghost" style={{ flex: 1 }} onClick={onCancel}>
+                Volver
+              </button>
+            </div>
+          </>
         ) : (
           <>
-            {questions.length === 0 ? (
-              <div className="note" style={{ marginTop: -8, marginBottom: 14 }}>
-                Este sistema no tiene preguntas de seguridad configuradas. Usa el código de
-                recuperación en su lugar.
-              </div>
-            ) : (
-              <>
-                {questions.map((q, i) => (
-                  <div key={i} style={{ marginBottom: 10 }}>
-                    <div className="note" style={{ marginTop: 0, marginBottom: 4, textAlign: "left" }}>
-                      {q}
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Respuesta"
-                      value={answers[i] || ""}
-                      onChange={(e) => setAnswers((prev) => prev.map((p, idx) => (idx === i ? e.target.value : p)))}
-                    />
-                  </div>
-                ))}
-                <input
-                  type="password"
-                  placeholder="Nueva contraseña"
-                  style={{ marginBottom: 10 }}
-                  value={newPass2}
-                  onChange={(e) => setNewPass2(e.target.value)}
-                />
-              </>
-            )}
-            <div className="row">
+            <div className="note" style={{ marginTop: -8, marginBottom: 14 }}>
+              Respuestas correctas. Elige tu nueva contraseña.
+            </div>
+            <div style={{ position: "relative", marginBottom: 10 }}>
+              <input
+                type={showPass2 ? "text" : "password"}
+                placeholder="Nueva contraseña"
+                style={{ paddingRight: 40 }}
+                value={newPass2}
+                onChange={(e) => setNewPass2(e.target.value)}
+              />
               <button
-                className="btn secondary"
-                style={{ flex: 1 }}
-                onClick={doRecoverSecurity}
-                disabled={questions.length === 0}
+                type="button"
+                className="pass-toggle"
+                aria-label={showPass2 ? "Ocultar contraseña" : "Mostrar contraseña"}
+                onClick={() => setShowPass2((v) => !v)}
               >
+                {showPass2 ? "🙈" : "👁"}
+              </button>
+            </div>
+            <div style={{ position: "relative", marginBottom: 10 }}>
+              <input
+                type={showConfirmPass2 ? "text" : "password"}
+                placeholder="Confirmar contraseña"
+                style={{ paddingRight: 40 }}
+                value={confirmPass2}
+                onChange={(e) => setConfirmPass2(e.target.value)}
+              />
+              <button
+                type="button"
+                className="pass-toggle"
+                aria-label={showConfirmPass2 ? "Ocultar contraseña" : "Mostrar contraseña"}
+                onClick={() => setShowConfirmPass2((v) => !v)}
+              >
+                {showConfirmPass2 ? "🙈" : "👁"}
+              </button>
+            </div>
+            <button className="back-link" style={{ marginTop: -6, marginBottom: 10 }} onClick={() => setAnswersVerified(false)}>
+              ‹ Cambiar respuestas
+            </button>
+            <div className="row">
+              <button className="btn secondary" style={{ flex: 1 }} onClick={doRecoverSecurity}>
                 Restablecer
               </button>
               <button className="btn ghost" style={{ flex: 1 }} onClick={onCancel}>

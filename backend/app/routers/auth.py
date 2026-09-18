@@ -129,6 +129,43 @@ def set_security_questions(body: schemas.SecurityQuestionsUpdate, db: Session = 
     return {"ok": True}
 
 
+def _check_security_answers(db: Session, answers: list[str], key: str) -> JSONResponse | None:
+    """None si las respuestas son correctas; si no, la JSONResponse de error a devolver."""
+    questions = crud.get_security_questions(db)
+    if not questions:
+        return JSONResponse({"ok": False, "error": "No hay preguntas de seguridad configuradas"}, status_code=400)
+    if len(answers) != len(questions):
+        rate_limit.register_failure(key)
+        return JSONResponse({"ok": False, "error": "Respuestas incompletas"}, status_code=400)
+
+    all_correct = all(
+        security.verify_password(_normalize_answer(given), q["answerHash"])
+        for given, q in zip(answers, questions)
+    )
+    if not all_correct:
+        rate_limit.register_failure(key)
+        return JSONResponse({"ok": False, "error": "Una o más respuestas son incorrectas"}, status_code=400)
+    return None
+
+
+@router.post("/recover-security/verify")
+def verify_security_answers(request: Request, body: schemas.SecurityAnswersVerify, db: Session = Depends(get_db)):
+    # Paso 1 del flujo: confirma si las respuestas son correctas antes de pedir
+    # la contraseña nueva. No cambia nada; el paso final (/recover-security)
+    # vuelve a validar las respuestas de todos modos, asi que esto no relaja
+    # la seguridad, solo mejora el orden en que se pide la informacion.
+    key = f"recover-security:{client_ip(request)}"
+    if rate_limit.is_locked(key):
+        return JSONResponse(
+            {"ok": False, "error": "Demasiados intentos. Espera unos minutos."},
+            status_code=429,
+        )
+    error = _check_security_answers(db, body.answers, key)
+    if error:
+        return error
+    return {"ok": True}
+
+
 @router.post("/recover-security")
 def recover_security(request: Request, body: schemas.SecurityRecoverRequest, db: Session = Depends(get_db)):
     key = f"recover-security:{client_ip(request)}"
@@ -138,20 +175,9 @@ def recover_security(request: Request, body: schemas.SecurityRecoverRequest, db:
             status_code=429,
         )
 
-    questions = crud.get_security_questions(db)
-    if not questions:
-        return JSONResponse({"ok": False, "error": "No hay preguntas de seguridad configuradas"}, status_code=400)
-    if len(body.answers) != len(questions):
-        rate_limit.register_failure(key)
-        return JSONResponse({"ok": False, "error": "Respuestas incompletas"}, status_code=400)
-
-    all_correct = all(
-        security.verify_password(_normalize_answer(given), q["answerHash"])
-        for given, q in zip(body.answers, questions)
-    )
-    if not all_correct:
-        rate_limit.register_failure(key)
-        return JSONResponse({"ok": False, "error": "Una o más respuestas son incorrectas"}, status_code=400)
+    error = _check_security_answers(db, body.answers, key)
+    if error:
+        return error
 
     new_pass = body.newPassword.strip()
     if len(new_pass) < 4:
